@@ -8,7 +8,7 @@
     <!-- Firebase SDK Modular CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi7Tr4DDGvWg-a8Fd_tybUS7bBq0hrvaY",
@@ -24,9 +24,10 @@
         const db = getFirestore(app);
 
         window.db = db;
-        window.fbModules = { collection, onSnapshot, query, orderBy, limit };
+        window.fbModules = { collection, onSnapshot, query, orderBy, getDocs, where };
         
-        initRealtimeSync();
+        // Cek apakah perangkat sudah pernah memasukkan token yang valid
+        checkSessionToken();
     </script>
 
     <style>
@@ -58,6 +59,55 @@
             border-radius: 10px; 
             box-shadow: 0 4px 12px rgba(32,55,100,0.08); 
         }
+
+        /* HALAMAN LOGIN TOKEN */
+        #authOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--primary);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .auth-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .auth-card h3 { color: var(--primary); margin-top: 0; font-size: 18px; }
+        .auth-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .auth-btn:hover { background: #15264a; }
+        .auth-error { color: var(--danger); font-size: 11px; margin-top: 8px; display: none; }
 
         h2 { 
             color: var(--primary); 
@@ -114,7 +164,6 @@
 
         .section-title { font-size: 12px; font-weight: bold; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 
-        /* Styling Ringkasan Card Interaktif */
         .summary-card-container {
             display: flex;
             flex-direction: column;
@@ -130,9 +179,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        .summary-item-card:hover {
-            background: #f1f5f9;
-        }
+        .summary-item-card:hover { background: #f1f5f9; }
         .summary-item-header {
             display: flex;
             justify-content: space-between;
@@ -194,7 +241,7 @@
             width: fit-content;
         }
 
-        /* MODAL POP-UP STYLING */
+        /* MODAL POP-UP DETAIL */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -216,11 +263,6 @@
             flex-direction: column;
             overflow: hidden;
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            animation: modalPop 0.25s ease-out;
-        }
-        @keyframes modalPop {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
         }
         .modal-header {
             background: var(--primary);
@@ -232,100 +274,26 @@
             justify-content: space-between;
             align-items: center;
         }
-        .modal-close-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .modal-body {
-            padding: 12px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background: #f8fafc;
-        }
+        .modal-close-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; font-weight: bold; }
+        .modal-body { padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; }
 
-        /* Grouping Tanggal Styling untuk Database Utama */
-        .date-group-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 8px;
-        }
+        .date-group-container { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+        .date-group-box { background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }
+        .date-group-header { background: var(--primary); color: white; padding: 8px 12px; font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .date-group-content { padding: 8px; display: flex; flex-direction: column; gap: 8px; background: #fafbfc; }
 
-        .date-group-box {
-            background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-        }
-
-        .date-group-header {
-            background: var(--primary);
-            color: white;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .date-group-content {
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            background: #fafbfc;
-        }
-
-        .sub-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 10px;
-            border-left: 3px solid var(--primary);
-        }
+        .sub-card { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; border-left: 3px solid var(--primary); }
         .sub-card.closed { border-left-color: var(--success); }
         .sub-card.open { border-left-color: var(--danger); }
-
-        .sub-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 11px;
-            margin-bottom: 4px;
-        }
-
-        .sub-card-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4px;
-            font-size: 10px;
-            margin-top: 4px;
-            border-top: 1px dashed #eee;
-            padding-top: 4px;
-        }
-
+        .sub-card-header { display: flex; justify-content: space-between; align-items: center; font-size: 11px; margin-bottom: 4px; }
+        .sub-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 10px; margin-top: 4px; border-top: 1px dashed #eee; padding-top: 4px; }
         .sub-item span { color: #718093; display: block; font-size: 8px; text-transform: uppercase; }
         .sub-item strong { color: var(--text-main); font-size: 10px; }
 
         .desktop-table-wrapper { display: none; }
-
         @media (min-width: 768px) {
             body { padding: 20px; }
             .container { padding: 20px; }
-            h2 { font-size: 18px; flex-direction: row; justify-content: space-between; align-items: center; }
-            .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
-            .kpi-card { padding: 15px 18px; }
-            .kpi-title { font-size: 11px; }
-            .kpi-value { font-size: 18px; }
-            
             .summary-card-container { display: none; }
             .desktop-table-wrapper { display: block; }
         }
@@ -333,15 +301,25 @@
 </head>
 <body>
 
+    <!-- HALAMAN VERIFIKASI TOKEN AKSES -->
+    <div id="authOverlay">
+        <div class="auth-card">
+            <h3>🔐 Keamanan Dashboard</h3>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Masukkan Token Akses Khusus Anda untuk membuka data pengiriman.</p>
+            <input type="text" id="tokenInput" class="auth-input" placeholder="KODE TOKEN">
+            <button class="auth-btn" onclick="verifyToken()">Masuk Dashboard</button>
+            <div id="authError" class="auth-error">Token tidak valid atau sudah tidak aktif!</div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="dashboard-header">
             <h2>
-                <span>Dashboard Monitoring: Pengiriman Assembly</span>
+                <span>Dashboard Monitoring Kabag: Pengiriman Assembly</span>
             </h2>
-            <span class="badge-role">Mode View Only (Real-Time)</span>
+            <span class="badge-role">Mode Secure (Real-Time)</span>
         </div>
         
-        <!-- KPI CARDS -->
         <div class="kpi-grid">
             <div class="kpi-card info">
                 <div class="kpi-title">Total Jadwal Master</div>
@@ -361,17 +339,12 @@
             </div>
         </div>
 
-        <!-- RINGKASAN 7 JADWAL TERDEKAT -->
         <div class="summary-box">
             <div class="section-title">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-                Ringkasan 7 Jadwal Pengiriman Terdekat (Ketuk baris untuk Pop-up Detail)
+                Ringkasan 7 Jadwal Terdekat (Ketuk untuk Pop-up Detail)
             </div>
-            
-            <!-- Tampilan Ringkasan Card Interaktif untuk Mobile -->
             <div id="summaryCardContainer" class="summary-card-container"></div>
-
-            <!-- Tampilan Ringkasan Tabel untuk Desktop -->
             <div class="desktop-table-wrapper">
                 <div class="table-responsive">
                     <table id="tabelRingkasan" class="desktop-table" style="background: white;">
@@ -395,7 +368,6 @@
             <input type="text" id="searchInput" class="search-box" placeholder="Cari Nama Produk, Job Order, PO#, atau Kode Item..." oninput="renderTabel()">
         </div>
 
-        <!-- DATABASE PENGIRIMAN DIKELOMPOKKAN BERDASARKAN TANGGAL -->
         <div id="dateGroupView" class="date-group-container"></div>
     </div>
 
@@ -406,14 +378,52 @@
                 <span id="modalTitle">Detail Pengiriman</span>
                 <button class="modal-close-btn" onclick="closeModal()">&times;</button>
             </div>
-            <div id="modalBody" class="modal-body">
-                <!-- Konten detail akan dimasukkan secara dinamis via JavaScript -->
-            </div>
+            <div id="modalBody" class="modal-body"></div>
         </div>
     </div>
 
     <script>
         let database = [];
+
+        async function checkSessionToken() {
+            let savedToken = localStorage.getItem('assembly_access_token');
+            if (savedToken) {
+                let isValid = await validateTokenInDB(savedToken);
+                if (isValid) {
+                    document.getElementById('authOverlay').style.display = 'none';
+                    initRealtimeSync();
+                    return;
+                }
+            }
+            document.getElementById('authOverlay').style.display = 'flex';
+        }
+
+        async function verifyToken() {
+            let inputVal = document.getElementById('tokenInput').value.trim().toUpperCase();
+            let errDiv = document.getElementById('authError');
+            if (!inputVal) return;
+
+            let isValid = await validateTokenInDB(inputVal);
+            if (isValid) {
+                localStorage.setItem('assembly_access_token', inputVal);
+                document.getElementById('authOverlay').style.display = 'none';
+                initRealtimeSync();
+            } else {
+                errDiv.style.display = 'block';
+            }
+        }
+
+        async function validateTokenInDB(tokenStr) {
+            try {
+                const { collection, getDocs, query, where } = window.fbModules;
+                const q = query(collection(window.db, "access_tokens"), where("token", "==", tokenStr), where("active", "==", true));
+                const querySnapshot = await getDocs(q);
+                return !querySnapshot.empty;
+            } catch (e) {
+                console.error("Gagal verifikasi token:", e);
+                return false;
+            }
+        }
 
         function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy } = window.fbModules;
@@ -426,14 +436,13 @@
                 });
                 renderTabel();
                 updateGlobalKPI();
-            }, (error) => { console.error("Gagal sinkronisasi data:", error); });
+            }, (error) => { console.error(error); });
         }
 
         function formatHariTanggal(tglStr) {
             if (!tglStr) return { hari: '-', tanggalFormatted: '-' };
             let parts = tglStr.split('-');
             if (parts.length !== 3) return { hari: '-', tanggalFormatted: tglStr };
-
             let dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
             let namaHari = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(dateObj);
             let tanggalFormatted = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -447,24 +456,19 @@
                 totalHasil += item.hasil || 0;
             });
             let progress = totalOrder > 0 ? Math.round((totalHasil / totalOrder) * 100) : 0;
-            
             document.getElementById('kpiTotalJO').innerText = database.length.toLocaleString('en-US');
             document.getElementById('kpiTotalOrder').innerText = totalOrder.toLocaleString('en-US');
             document.getElementById('kpiTotalHasil').innerText = totalHasil.toLocaleString('en-US');
             document.getElementById('kpiProgress').innerText = progress + '%';
         }
 
-        // FUNGSI POP-UP MODAL
         function showDetailModal(tglStr) {
             let infoWaktu = formatHariTanggal(tglStr);
             document.getElementById('modalTitle').innerText = `Detail: ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}`;
-            
             let modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = '';
 
-            // Cari item yang sesuai dengan tanggal tersebut dari database
             let itemsOnDate = database.filter(item => item.tanggal === tglStr);
-
             if (itemsOnDate.length === 0) {
                 modalBody.innerHTML = `<div style="text-align: center; color: #718093; padding: 15px; font-style: italic;">Tidak ada data pada tanggal ini.</div>`;
             } else {
@@ -483,61 +487,37 @@
                             <div>${statusBadge}</div>
                         </div>
                         <div class="sub-card-grid">
-                            <div class="sub-item">
-                                <span>Job Order</span>
-                                <strong>${item.jobOrder}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>PO#</span>
-                                <strong>${displayPo}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>Order / Hasil</span>
-                                <strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>Sisa</span>
-                                <strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong>
-                            </div>
+                            <div class="sub-item"><span>Job Order</span><strong>${item.jobOrder}</strong></div>
+                            <div class="sub-item"><span>PO#</span><strong>${displayPo}</strong></div>
+                            <div class="sub-item"><span>Order / Hasil</span><strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong></div>
+                            <div class="sub-item"><span>Sisa</span><strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong></div>
                         </div>
-                        <div style="margin-top: 4px; font-size: 9px; color: #666;">
-                            Ket: ${item.ket || '-'}
-                        </div>
+                        <div style="margin-top: 4px; font-size: 9px; color: #666;">Ket: ${item.ket || '-'}</div>
                     `;
                     modalBody.appendChild(subCard);
                 });
             }
-
             document.getElementById('detailModal').style.display = 'flex';
         }
 
-        function closeModal(event) {
-            document.getElementById('detailModal').style.display = 'none';
-        }
+        function closeModal(event) { document.getElementById('detailModal').style.display = 'none'; }
 
         function renderRingkasanHarian(sortedDatesMap, summaryMap) {
             let cardContainer = document.getElementById('summaryCardContainer');
             cardContainer.innerHTML = '';
-
             let tbody = document.getElementById('tabelRingkasan').getElementsByTagName('tbody')[0];
             tbody.innerHTML = '';
 
             if (sortedDatesMap.length === 0) {
                 cardContainer.innerHTML = `<div style="text-align: center; color: #718093; font-style: italic; font-size: 11px; padding: 8px;">Tidak ada jadwal terdekat.</div>`;
-                let row = tbody.insertRow();
-                row.innerHTML = `<td colspan="5" style="text-align: center; color: #718093; font-style: italic;">Tidak ada jadwal pengiriman terdekat atau belum selesai.</td>`;
                 return;
             }
 
             sortedDatesMap.forEach(tgl => {
                 let dataTgl = summaryMap[tgl];
                 let infoWaktu = formatHariTanggal(tgl);
-                
-                let rincianTeks = dataTgl.open === 0 
-                    ? `Semua sudah closed (${dataTgl.closed} pengiriman).` 
-                    : `${dataTgl.closed} Closed, ${dataTgl.open} Open.`;
+                let rincianTeks = dataTgl.open === 0 ? `Semua closed (${dataTgl.closed}).` : `${dataTgl.closed} Closed, ${dataTgl.open} Open.`;
 
-                // Card Mobile Interaktif (Memicu Pop-up Modal)
                 let cardDiv = document.createElement('div');
                 cardDiv.className = 'summary-item-card';
                 cardDiv.onclick = () => showDetailModal(tgl);
@@ -548,12 +528,11 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-top: 4px;">
                         <span>Status: <strong class="status-close">${dataTgl.closed} Closed</strong> | <strong class="${dataTgl.open > 0 ? 'status-open' : ''}">${dataTgl.open} Open</strong></span>
-                        <span style="color: var(--info); font-weight: bold; font-size: 10px;">Ketuk untuk Pop-up Detail &rarr;</span>
+                        <span style="color: var(--info); font-weight: bold; font-size: 10px;">Ketuk Pop-up &rarr;</span>
                     </div>
                 `;
                 cardContainer.appendChild(cardDiv);
 
-                // Baris Tabel Desktop Interaktif (Memicu Pop-up Modal)
                 let row = tbody.insertRow();
                 row.style.cursor = 'pointer';
                 row.onclick = () => showDetailModal(tgl);
@@ -578,42 +557,33 @@
             });
 
             let sortedData = filteredData.sort((a, b) => new Date(a.tanggal) - new Date(b));
-
             let summaryMap = {};
             database.forEach(item => {
                 let tgl = item.tanggal || 'Tanpa Tanggal';
-                if (!summaryMap[tgl]) {
-                    summaryMap[tgl] = { total: 0, closed: 0, open: 0 };
-                }
+                if (!summaryMap[tgl]) summaryMap[tgl] = { total: 0, closed: 0, open: 0 };
                 summaryMap[tgl].total++;
-                if (item.sisa <= 0) { summaryMap[tgl].closed++; } else { summaryMap[tgl].open++; }
+                if (item.sisa <= 0) summaryMap[tgl].closed++; else summaryMap[tgl].open++;
             });
 
             let now = new Date();
             let todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-
-            let sortedDates = Object.keys(summaryMap)
-                .filter(tgl => tgl >= todayStr || summaryMap[tgl].open > 0)
-                .sort((a, b) => new Date(a) - new Date(b))
-                .slice(0, 7);
+            let sortedDates = Object.keys(summaryMap).filter(tgl => tgl >= todayStr || summaryMap[tgl].open > 0).sort((a, b) => new Date(a) - new Date(b)).slice(0, 7);
 
             renderRingkasanHarian(sortedDates, summaryMap);
 
             let groupedByDate = {};
             sortedData.forEach(item => {
                 let tgl = item.tanggal || 'Tanpa Tanggal';
-                if (!groupedByDate[tgl]) {
-                    groupedByDate[tgl] = [];
-                }
+                if (!groupedByDate[tgl]) groupedByDate[tgl] = [];
                 groupedByDate[tgl].push(item);
             });
 
             let groupContainer = document.getElementById('dateGroupView');
             groupContainer.innerHTML = '';
-
             let dateKeys = Object.keys(groupedByDate);
+
             if (dateKeys.length === 0) {
-                groupContainer.innerHTML = `<div style="text-align: center; color: #718093; padding: 20px; font-style: italic; background: white; border-radius: 8px;">Tidak ada data pengiriman yang ditemukan.</div>`;
+                groupContainer.innerHTML = `<div style="text-align: center; color: #718093; padding: 20px; font-style: italic; background: white; border-radius: 8px;">Tidak ada data ditemukan.</div>`;
                 return;
             }
 
@@ -623,15 +593,12 @@
 
                 let dateBox = document.createElement('div');
                 dateBox.className = 'date-group-box';
-                dateBox.id = 'group-' + tgl;
-
-                let headerDiv = document.createElement('div');
-                headerDiv.className = 'date-group-header';
-                headerDiv.innerHTML = `
-                    <span>📅 ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}</span>
-                    <span style="font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px;">${itemsList.length} Job Order</span>
+                dateBox.innerHTML = `
+                    <div class="date-group-header">
+                        <span>📅 ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}</span>
+                        <span style="font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px;">${itemsList.length} Job Order</span>
+                    </div>
                 `;
-                dateBox.appendChild(headerDiv);
 
                 let contentDiv = document.createElement('div');
                 contentDiv.className = 'date-group-content';
@@ -651,26 +618,12 @@
                             <div>${statusBadge}</div>
                         </div>
                         <div class="sub-card-grid">
-                            <div class="sub-item">
-                                <span>Job Order</span>
-                                <strong>${item.jobOrder}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>PO#</span>
-                                <strong>${displayPo}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>Order / Hasil</span>
-                                <strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong>
-                            </div>
-                            <div class="sub-item">
-                                <span>Sisa</span>
-                                <strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong>
-                            </div>
+                            <div class="sub-item"><span>Job Order</span><strong>${item.jobOrder}</strong></div>
+                            <div class="sub-item"><span>PO#</span><strong>${displayPo}</strong></div>
+                            <div class="sub-item"><span>Order / Hasil</span><strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong></div>
+                            <div class="sub-item"><span>Sisa</span><strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong></div>
                         </div>
-                        <div style="margin-top: 4px; font-size: 9px; color: #666;">
-                            Ket: ${item.ket || '-'}
-                        </div>
+                        <div style="margin-top: 4px; font-size: 9px; color: #666;">Ket: ${item.ket || '-'}</div>
                     `;
                     contentDiv.appendChild(subCard);
                 });
