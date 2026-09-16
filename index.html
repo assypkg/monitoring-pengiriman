@@ -398,7 +398,8 @@
 
         function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy } = window.fbModules;
-            const q = query(collection(window.db, "production_trackers"), orderBy("tanggal", "asc"));
+           const q = query(collection(window.db, "production_data_v2"), orderBy("tanggal", "asc"));
+
             
             onSnapshot(q, (snapshot) => {
                 database = [];
