@@ -4,7 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summary Pengiriman Assembly</title>
-    
+    <!-- Konfigurasi PWA (Aplikasi Mobile) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#203764">
+
+    <!-- Dukungan Penuh untuk iOS (iPhone / iPad) -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AssyDash">
+
+    <!-- Pendaftaran Service Worker untuk Instalasi -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Sistem Aplikasi Aktif'))
+                    .catch(err => console.error('Gagal memuat sistem aplikasi', err));
+            });
+        }
+    </script>
     <!-- Firebase SDK Modular CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
