@@ -233,6 +233,25 @@
         .sub-item strong { color: var(--text-main); font-size: 10px; }
         .desktop-table-wrapper { display: none; }
         @media (min-width: 768px) { body { padding: 20px; } .container { padding: 20px; } .summary-card-container { display: none; } .desktop-table-wrapper { display: block; } }
+
+        /* TOMBOL INSTALL PWA */
+        .install-btn {
+            background-color: var(--success);
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none; /* Disembunyikan dulu sampai sistem siap */
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .install-btn:hover { background-color: #219653; }
+        .install-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -258,11 +277,17 @@
     </div>
 
     <div class="container">
+        <!-- HEADER DENGAN TOMBOL INSTALL APLIKASI -->
         <div class="dashboard-header">
             <h2>
                 <span>Summary Pengiriman Assembly</span>
             </h2>
-            <span class="badge-role">Encrypted Session</span>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button id="installAppBtn" class="install-btn">
+                    📲 INSTALL APLIKASI
+                </button>
+                <span class="badge-role">Encrypted Session</span>
+            </div>
         </div>
         
         <div class="kpi-grid">
@@ -729,6 +754,47 @@
         window.verifyToken = verifyToken;
         window.setStatusProcessing = setStatusProcessing;
         window.closeModal = closeModal;
+    </script>
+
+    <!-- SCRIPT INSTALL PWA AUTOMATIS -->
+    <script>
+        let deferredPrompt;
+        const installBtn = document.getElementById('installAppBtn');
+
+        // Deteksi apakah perangkat mendukung instalasi (Android/Chrome/Edge/PC)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Mencegah pop-up default Chrome agar kita bisa kontrol via tombol
+            deferredPrompt = e; // Simpan event untuk dipanggil lewat tombol
+            installBtn.style.display = 'flex'; // Munculkan tombol Install hijau
+        });
+
+        // Aksi ketika tombol Install diklik
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt(); // Tampilkan pop-up instalasi bawaan sistem operasi
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('Aplikasi berhasil diinstal pengguna');
+                    installBtn.style.display = 'none'; // Sembunyikan tombol setelah sukses diinstal
+                }
+                deferredPrompt = null;
+            } else {
+                // Fallback instruksi manual untuk pengguna perangkat Apple (iOS / iPhone / iPad)
+                alert('Untuk pengguna iPhone/iOS:\n\n1. Ketuk ikon "Bagikan" (kotak dengan panah atas) di menu Safari Anda.\n2. Pilih menu "Tambah ke Layar Utama" (Add to Home Screen).');
+            }
+        });
+
+        // Deteksi jika aplikasi sudah terinstal (terbuka di mode standalone), sembunyikan tombol
+        window.addEventListener('appinstalled', () => {
+            installBtn.style.display = 'none';
+            deferredPrompt = null;
+        });
+
+        // Tampilkan tombol untuk pengguna iOS agar mereka bisa membaca instruksi (fallback)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS && !window.navigator.standalone) {
+            installBtn.style.display = 'flex';
+        }
     </script>
 </body>
 </html>
