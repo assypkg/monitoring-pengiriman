@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summary Pengiriman Assembly</title>
-    
+   
     <!-- Konfigurasi PWA (Aplikasi Mobile) -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#203764">
-    
+
     <!-- Dukungan Penuh untuk iOS (iPhone / iPad) -->
     <link rel="apple-touch-icon" href="icon-192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,11 +25,10 @@
             });
         }
     </script>
-
     <!-- Firebase SDK Modular CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, getDocs, where, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi7Tr4DDGvWg-a8Fd_tybUS7bBq0hrvaY",
@@ -45,7 +44,7 @@
         const db = getFirestore(app);
 
         window.db = db;
-        window.fbModules = { collection, onSnapshot, query, orderBy, getDocs, where };
+        window.fbModules = { collection, onSnapshot, query, orderBy, getDocs, where, doc, updateDoc, arrayUnion };
         
         checkSessionToken();
     </script>
@@ -187,32 +186,7 @@
             transition: background 0.2s;
         }
         .auth-btn:hover { background: #15264a; }
-        .auth-error { color: var(--danger); font-size: 12px; margin-top: 10px; display: none; font-weight: bold; background: #fceceb; padding: 8px; border-radius: 4px; }
-
-        /* TOMBOL INSTALL EKSKLUSIF DI DASHBOARD */
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .install-btn {
-            background: var(--success);
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            font-size: 10px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            display: none; /* Otomatis muncul jika perangkat mendukung instalasi */
-            align-items: center;
-            gap: 4px;
-            box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
-            transition: background 0.2s;
-            text-transform: uppercase;
-        }
-        .install-btn:hover { background: #219653; }
+        .auth-error { color: var(--danger); font-size: 12px; margin-top: 10px; display: none; font-weight: bold; background: #fceceb; padding: 8px; border-radius: 4px; line-height: 1.4; }
 
         /* GAYA DASHBOARD */
         h2 { color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-top: 0; font-size: 15px; display: flex; flex-direction: column; gap: 6px; }
@@ -267,6 +241,7 @@
     <!-- HALAMAN VERIFIKASI TOKEN KORPORAT -->
     <div id="authOverlay">
         <div class="auth-card">
+            
             <div id="iconContainer" class="secure-icon-container">
                 <svg class="secure-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -277,7 +252,7 @@
             <h3>Secure Access</h3>
             <p id="authMessage">Restricted Area. Input token untuk melanjutkan.</p>
             
-            <input type="text" id="tokenInput" class="auth-input" placeholder="KODE TOKEN EX: KABAG01" onfocus="setStatusProcessing()" oninput="setStatusProcessing()">
+            <input type="text" id="tokenInput" class="auth-input" placeholder="MASUKKAN KODE TOKEN" onfocus="setStatusProcessing()" oninput="setStatusProcessing()">
             <button class="auth-btn" onclick="verifyToken()">Verifikasi Data</button>
             <div id="authError" class="auth-error">AKSES DITOLAK: Token tidak terdaftar!</div>
         </div>
@@ -286,20 +261,14 @@
     <div class="container">
         <div class="dashboard-header">
             <h2>
-                <span>Executive Dashboard: Pengiriman Assembly</span>
+                <span>Summary Pengiriman Assembly</span>
             </h2>
-            <div class="header-actions">
-                <!-- Tombol Install Aplikasi Dinamis -->
-                <button id="installAppBtn" class="install-btn" onclick="triggerInstall()">
-                    📥 Install Aplikasi
-                </button>
-                <span class="badge-role">Encrypted Session</span>
-            </div>
+            <span class="badge-role">Encrypted Session</span>
         </div>
         
         <div class="kpi-grid">
             <div class="kpi-card info">
-                <div class="kpi-title">Total Jadwal Master</div>
+                <div class="kpi-title">Total Jadwal Pengiriman</div>
                 <div class="kpi-value" id="kpiTotalJO">0</div>
             </div>
             <div class="kpi-card">
@@ -360,34 +329,28 @@
     </div>
 
     <script>
-        // Logika PWA Install Prompt
-        let deferredPrompt;
-        const installBtn = document.getElementById('installAppBtn');
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.style.display = 'inline-flex'; // Munculkan tombol install
-        });
-
-        async function triggerInstall() {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            let { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                console.log('Pengguna menyetujui instalasi aplikasi');
-            }
-            deferredPrompt = null;
-            installBtn.style.display = 'none';
-        }
-
-        window.addEventListener('appinstalled', (evt) => {
-            console.log('Aplikasi berhasil diinstal');
-            installBtn.style.display = 'none';
-        });
-
         let database = [];
 
+        // 1. Logika Generator Device ID Browser dengan Deteksi OS
+        function getDeviceId() {
+            let deviceId = localStorage.getItem("APP_DEVICE_ID");
+            if (!deviceId) {
+                let ua = navigator.userAgent;
+                let osName = "Lainnya";
+                if (ua.includes("Android")) osName = "Android";
+                else if (ua.includes("iPhone") || ua.includes("iPad")) osName = "iOS";
+                else if (ua.includes("Win")) osName = "Windows";
+                else if (ua.includes("Mac")) osName = "Mac";
+
+                let randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                deviceId = `${osName}-DEV-${randomCode}`;
+                
+                localStorage.setItem("APP_DEVICE_ID", deviceId);
+            }
+            return deviceId;
+        }
+
+        // 2. Fungsi Reaksi UI Keamanan
         function resetStatus() {
             let container = document.getElementById('iconContainer');
             container.className = 'secure-icon-container';
@@ -401,7 +364,7 @@
             
             errDiv.style.display = 'none';
             container.className = 'secure-icon-container anim-pulsing';
-            msg.innerText = "Memproses enkripsi input...";
+            msg.innerText = "Memproses verifikasi perangkat & jadwal...";
         }
 
         function setStatusSuccess() {
@@ -410,7 +373,7 @@
             
             container.className = 'secure-icon-container anim-success';
             document.getElementById('svgLock').style.transform = "translateY(-4px)";
-            msg.innerText = "Verifikasi Berhasil. Membuka data...";
+            msg.innerText = "Otorisasi Berhasil. Membuka data...";
             msg.style.color = "var(--success)";
             msg.style.fontWeight = "bold";
         }
@@ -420,17 +383,18 @@
             let msg = document.getElementById('authMessage');
             
             container.className = 'secure-icon-container anim-shake';
-            msg.innerText = "Otorisasi gagal. Silakan coba lagi.";
+            msg.innerText = "Otorisasi gagal. Akses ditolak.";
             msg.style.color = "var(--danger)";
             
             setTimeout(resetStatus, 800);
         }
 
+        // 3. Pengecekan Sesi Login
         async function checkSessionToken() {
             let savedToken = localStorage.getItem('assembly_access_token');
             if (savedToken) {
-                let isValid = await validateTokenInDB(savedToken);
-                if (isValid) {
+                let res = await validateTokenInDB(savedToken);
+                if (res.success) {
                     document.getElementById('authOverlay').style.display = 'none';
                     initRealtimeSync();
                     return;
@@ -439,13 +403,16 @@
             document.getElementById('authOverlay').style.display = 'flex';
         }
 
+        // 4. Eksekusi Verifikasi Token dari Input
         async function verifyToken() {
             let inputVal = document.getElementById('tokenInput').value.trim().toUpperCase();
             let errDiv = document.getElementById('authError');
             if (!inputVal) return;
 
-            let isValid = await validateTokenInDB(inputVal);
-            if (isValid) {
+            setStatusProcessing();
+            let res = await validateTokenInDB(inputVal);
+            
+            if (res.success) {
                 setStatusSuccess();
                 setTimeout(() => {
                     localStorage.setItem('assembly_access_token', inputVal);
@@ -454,26 +421,107 @@
                 }, 1000);
             } else {
                 setStatusFailed();
+                errDiv.innerText = res.message;
                 errDiv.style.display = 'block';
             }
         }
 
-        async function validateTokenInDB(tokenStr) {
-            try {
-                const { collection, getDocs, query, where } = window.fbModules;
-                const q = query(collection(window.db, "access_tokens"), where("token", "==", tokenStr), where("active", "==", true));
-                const querySnapshot = await getDocs(q);
-                return !querySnapshot.empty;
-            } catch (e) {
-                console.error("Gagal verifikasi token:", e);
+        // 5. Mesin Validasi Waktu Dinamis (Termasuk Lintas Hari / Cross-Midnight)
+        function validateSchedule(schedule) {
+            if (!schedule || !schedule.isScheduled) return true; // Lolos jika toggle dimatikan
+
+            const now = new Date();
+            const currentDay = now.getDay(); // 0 (Minggu) - 6 (Sabtu)
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const currentTimeInt = (currentHour * 60) + currentMinute;
+
+            const [startH, startM] = schedule.start.time.split(':').map(Number);
+            const [endH, endM] = schedule.end.time.split(':').map(Number);
+            const startTimeInt = (startH * 60) + startM;
+            const endTimeInt = (endH * 60) + endM;
+
+            // Fungsi cek validitas hari
+            function isDayValid(type, customDaysArr, checkDay, createdAt) {
+                if (type === 'tiap_hari') return true;
+                if (type === 'senin_jumat') return checkDay >= 1 && checkDay <= 5;
+                if (type === 'khusus') return customDaysArr.includes(checkDay);
+                if (type === 'sekali') {
+                    return new Date(createdAt).toDateString() === now.toDateString();
+                }
                 return false;
+            }
+
+            const isStartDayValidToday = isDayValid(schedule.start.type, schedule.start.days, currentDay, schedule.createdAt);
+            
+            // Logika Shift Normal (Misal: 08:00 - 16:00)
+            if (startTimeInt <= endTimeInt) {
+                const isEndDayValidToday = isDayValid(schedule.end.type, schedule.end.days, currentDay, schedule.createdAt);
+                
+                return (isStartDayValidToday || isEndDayValidToday) && 
+                       (currentTimeInt >= startTimeInt && currentTimeInt <= endTimeInt);
+            } 
+            // Logika Shift Lintas Malam / Cross-Midnight (Misal: 22:00 - 06:00)
+            else {
+                const yesterday = currentDay === 0 ? 6 : currentDay - 1;
+                const isStartDayValidYesterday = isDayValid(schedule.start.type, schedule.start.days, yesterday, schedule.createdAt);
+                
+                // Kondisi 1: Masuk di malam hari (sebelum tengah malam)
+                const validTonight = isStartDayValidToday && (currentTimeInt >= startTimeInt);
+                
+                // Kondisi 2: Masuk di pagi buta (setelah tengah malam, mengikuti sisa shift kemarin)
+                const validThisMorning = isStartDayValidYesterday && (currentTimeInt <= endTimeInt);
+
+                return validTonight || validThisMorning;
             }
         }
 
+        // 6. Validasi Token, Jadwal, dan Perangkat ke Firestore
+        async function validateTokenInDB(tokenStr) {
+            try {
+                const { collection, getDocs, query, where, doc, updateDoc, arrayUnion } = window.fbModules;
+                const q = query(collection(window.db, "access_tokens"), where("token", "==", tokenStr), where("active", "==", true));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    return { success: false, message: "AKSES DITOLAK: Token tidak terdaftar atau telah dinonaktifkan." };
+                }
+
+                const docSnap = querySnapshot.docs[0];
+                const tokenData = docSnap.data();
+                const docId = docSnap.id;
+
+                // Eksekusi Pengecekan Jadwal
+                if (!validateSchedule(tokenData.schedule)) {
+                    return { success: false, message: "AKSES DITOLAK: Saat ini berada di luar jadwal aktif token." };
+                }
+
+                // Pengecekan Perangkat
+                const deviceId = getDeviceId();
+                const registeredDevices = tokenData.registeredDevices || [];
+                const maxDevices = tokenData.maxDevices || 1;
+
+                if (registeredDevices.includes(deviceId)) {
+                    return { success: true, data: tokenData };
+                } else {
+                    if (registeredDevices.length < maxDevices) {
+                        await updateDoc(doc(window.db, "access_tokens", docId), { registeredDevices: arrayUnion(deviceId) });
+                        return { success: true, data: tokenData };
+                    } else {
+                        return { success: false, message: `AKSES DITOLAK: Token sudah penuh terpakai (${maxDevices} perangkat).` };
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                return { success: false, message: "AKSES DITOLAK: Kesalahan koneksi sistem." };
+            }
+        }
+
+        // TUGAS VISUAL DAN DATA BAWAAN
         function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy } = window.fbModules;
-            const q = query(collection(window.db, "production_trackers"), orderBy("tanggal", "asc"));
-            
+            const q = query(collection(window.db, "production_data_v2"), orderBy("tanggal", "asc"));
+
             onSnapshot(q, (snapshot) => {
                 database = [];
                 snapshot.forEach((docSnap) => {
@@ -677,6 +725,11 @@
                 groupContainer.appendChild(dateBox);
             });
         }
+
+        // Ekspos ke global scope agar bisa dipanggil dari HTML
+        window.verifyToken = verifyToken;
+        window.setStatusProcessing = setStatusProcessing;
+        window.closeModal = closeModal;
     </script>
 </body>
 </html>
