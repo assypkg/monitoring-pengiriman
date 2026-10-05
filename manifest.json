@@ -1,0 +1,21 @@
+{
+  "name": "Dashboard Pengiriman Assembly",
+  "short_name": "AssyDash",
+  "description": "Executive Dashboard untuk Monitoring Pengiriman Assembly secara Real-Time",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a2538",
+  "theme_color": "#203764",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
