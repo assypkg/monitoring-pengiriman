@@ -454,7 +454,7 @@
             }
         }
 
-        // 5. Mesin Validasi Waktu Dinamis (Termasuk Lintas Hari / Cross-Midnight)
+        // 5. Mesin Validasi Waktu Dinamis
         function validateSchedule(schedule) {
             if (!schedule || !schedule.isScheduled) return true;
 
@@ -535,7 +535,7 @@
             }
         }
 
-        // 7. Penarikan Data (Pastikan Koleksi sudah benar, asumsi production_data_v2)
+        // 7. Penarikan Data Real-time
         function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy } = window.fbModules;
             const q = query(collection(window.db, "production_data_v2"), orderBy("tanggal", "asc"));
@@ -573,13 +573,29 @@
             document.getElementById('kpiProgress').innerText = progress + '%';
         }
 
+        // PERBAIKAN: POP-UP DETAIL MENERAPKAN SORTING OPEN DI ATAS LALU ABJAD A-Z
         function showDetailModal(tglStr) {
             let infoWaktu = formatHariTanggal(tglStr);
             document.getElementById('modalTitle').innerText = `Detail: ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}`;
             let modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = '';
 
-            let itemsOnDate = database.filter(item => item.tanggal === tglStr);
+            let itemsOnDate = database.filter(item => item.tanggal === tglStr).sort((a, b) => {
+                // 1. Prioritaskan Status: OPEN (1) di atas CLOSED (0)
+                let isOpenA = a.sisa > 0 ? 1 : 0;
+                let isOpenB = b.sisa > 0 ? 1 : 0;
+                if (isOpenA !== isOpenB) {
+                    return isOpenB - isOpenA; 
+                }
+                
+                // 2. Jika status sama, urutkan Abjad Nama Produk A-Z
+                let prodA = (a.produk || '').toString().toLowerCase();
+                let prodB = (b.produk || '').toString().toLowerCase();
+                if (prodA < prodB) return -1;
+                if (prodA > prodB) return 1;
+                return 0;
+            });
+
             if (itemsOnDate.length === 0) {
                 modalBody.innerHTML = `<div style="text-align: center; color: #718093; padding: 15px; font-style: italic;">Tidak ada data pada tanggal ini.</div>`;
             } else {
@@ -673,29 +689,24 @@
 
             // Tahap 2: Pengurutan Presisi Tinggi (Sorting)
             let sortedData = filteredData.sort((a, b) => {
-                // A. Kelompokkan berdasarkan tanggal lebih dulu (Ascending)
                 let dateA = new Date(a.tanggal);
                 let dateB = new Date(b.tanggal);
                 if (dateA < dateB) return -1;
                 if (dateA > dateB) return 1;
 
-                // B. Di dalam tanggal yang sama, pisahkan status (OPEN posisi di atas)
                 let isOpenA = a.sisa > 0 ? 1 : 0;
                 let isOpenB = b.sisa > 0 ? 1 : 0;
                 if (isOpenA !== isOpenB) {
-                    return isOpenB - isOpenA; // 1 (Open) akan lebih dulu dari 0 (Closed)
+                    return isOpenB - isOpenA; 
                 }
 
-                // C. Di dalam status yang sama, urutkan berdasarkan pengaturan mode Dropdown
                 if (sortMode === 'default') {
-                    // Urutkan berdasarkan Nama Produk (A-Z / 1-9)
                     let prodA = (a.produk || '').toString().toLowerCase();
                     let prodB = (b.produk || '').toString().toLowerCase();
                     if (prodA < prodB) return -1;
                     if (prodA > prodB) return 1;
                     return 0;
                 } else {
-                    // Mode 'tanggal': Urutkan berdasarkan Waktu/Job Order
                     let joA = (a.jobOrder || '').toString().toLowerCase();
                     let joB = (b.jobOrder || '').toString().toLowerCase();
                     if (joA < joB) return -1;
