@@ -1,6 +1,6 @@
 {
   "name": "Dashboard Pengiriman Assembly",
-  "short_name": "J.O Monitor",
+  "short_name": "J.O Assembly",
   "description": "Executive Dashboard untuk Monitoring Pengiriman Assembly secara Real-Time",
   "start_url": "./index.html",
   "display": "standalone",
