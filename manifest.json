@@ -1,6 +1,6 @@
 {
   "name": "Dashboard Pengiriman Assembly",
-  "short_name": "AssyDash",
+  "short_name": "J.O Monitor",
   "description": "Executive Dashboard untuk Monitoring Pengiriman Assembly secara Real-Time",
   "start_url": "./index.html",
   "display": "standalone",
