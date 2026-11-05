@@ -1,4 +1,4 @@
-const CACHE_NAME = 'assy-dash-secure-v2';
+const CACHE_NAME = 'assy-dash-secure-v3';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
