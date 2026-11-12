@@ -286,6 +286,9 @@
                 <button id="installAppBtn" class="install-btn">
                     📲 INSTALL APLIKASI
                 </button>
+                <button id="archiveOpenBtn" onclick="bukaArsipViewer()" style="background:#0f766e;color:white;border:0;padding:5px 10px;border-radius:12px;font-size:10px;font-weight:bold;cursor:pointer;">
+                    ARSIP CLOSED <span id="viewerArchiveCount" style="background:rgba(255,255,255,.2);padding:1px 6px;border-radius:9px;margin-left:3px;">0</span>
+                </button>
                 <span class="badge-role">Encrypted Session</span>
             </div>
         </div>
@@ -343,6 +346,31 @@
         </div>
 
         <div id="dateGroupView" class="date-group-container"></div>
+    </div>
+
+    <!-- MODAL ARSIP JO CLOSED: hanya-baca untuk Viewer -->
+    <div id="archiveViewerModal" class="modal-overlay" onclick="tutupArsipViewer(event)">
+        <div class="modal-content" style="max-width:1000px;width:100%;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span>Arsip JO CLOSED</span>
+                <button class="modal-close-btn" onclick="tutupArsipViewer()">&times;</button>
+            </div>
+            <div style="padding:12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="renderArsipViewer()">
+                <div id="archiveViewerSummary" style="font-size:10px;color:#718093;margin-top:7px;">Memuat arsip...</div>
+            </div>
+            <div style="padding:12px;overflow:auto;max-height:65vh;">
+                <div class="table-responsive">
+                    <table class="desktop-table" style="min-width:850px;background:white;">
+                        <thead><tr>
+                            <th>Tanggal Kirim</th><th>Job Order</th><th>PO#</th><th>Kode Item</th>
+                            <th>Nama Produk</th><th>Order</th><th>Hasil</th><th>Sisa</th><th>Tanggal Arsip</th>
+                        </tr></thead>
+                        <tbody id="archiveViewerBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL POP-UP DETAIL -->
@@ -561,13 +589,17 @@
         }
 
         function updateGlobalKPI() {
+            const activeRecords = database.filter(item => item && item.isArchived !== true);
+            const archiveRecords = database.filter(item => item && item.isArchived === true);
             let totalOrder = 0, totalHasil = 0;
-            database.forEach(item => {
+            activeRecords.forEach(item => {
                 totalOrder += item.order || 0;
                 totalHasil += item.hasil || 0;
             });
             let progress = totalOrder > 0 ? Math.round((totalHasil / totalOrder) * 100) : 0;
-            document.getElementById('kpiTotalJO').innerText = database.length.toLocaleString('en-US');
+            const archiveCount = document.getElementById("viewerArchiveCount");
+            if (archiveCount) archiveCount.textContent = archiveRecords.length.toLocaleString("id-ID");
+            document.getElementById('kpiTotalJO').innerText = activeRecords.length.toLocaleString('en-US');
             document.getElementById('kpiTotalOrder').innerText = totalOrder.toLocaleString('en-US');
             document.getElementById('kpiTotalHasil').innerText = totalHasil.toLocaleString('en-US');
             document.getElementById('kpiProgress').innerText = progress + '%';
@@ -580,7 +612,7 @@
             let modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = '';
 
-            let itemsOnDate = database.filter(item => item.tanggal === tglStr).sort((a, b) => {
+            let itemsOnDate = database.filter(item => item && item.isArchived !== true && item.tanggal === tglStr).sort((a, b) => {
                 // 1. Prioritaskan Status: OPEN (1) di atas CLOSED (0)
                 let isOpenA = a.sisa > 0 ? 1 : 0;
                 let isOpenB = b.sisa > 0 ? 1 : 0;
@@ -680,6 +712,7 @@
 
             // Tahap 1: Filter Pencarian
             let filteredData = database.filter(item => {
+                if (!item || item.isArchived === true) return false;
                 let poVal = item.poNum || '';
                 return (item.jobOrder && item.jobOrder.toLowerCase().includes(keyword)) ||
                        (poVal && poVal.toLowerCase().includes(keyword)) ||
@@ -716,7 +749,7 @@
             });
 
             let summaryMap = {};
-            database.forEach(item => {
+            database.filter(item => item && item.isArchived !== true).forEach(item => {
                 let tgl = item.tanggal || 'Tanpa Tanggal';
                 if (!summaryMap[tgl]) summaryMap[tgl] = { total: 0, closed: 0, open: 0 };
                 summaryMap[tgl].total++;
@@ -830,6 +863,65 @@
         if (isIOS && !window.navigator.standalone) {
             installBtn.style.display = 'flex';
         }
+
+        // --- Arsip JO CLOSED: tampilan read-only Viewer ---
+        window.bukaArsipViewer = function() {
+            const search = document.getElementById("archiveViewerSearch");
+            if (search) search.value = "";
+            renderArsipViewer();
+            const modal = document.getElementById("archiveViewerModal");
+            if (modal) modal.style.display = "flex";
+        };
+        window.tutupArsipViewer = function(event) {
+            if (event && event.target && event.target.id !== "archiveViewerModal") return;
+            const modal = document.getElementById("archiveViewerModal");
+            if (modal) modal.style.display = "none";
+        };
+        window.renderArsipViewer = function() {
+            const body = document.getElementById("archiveViewerBody");
+            if (!body) return;
+            const keyword = String(document.getElementById("archiveViewerSearch")?.value || "").trim().toLowerCase();
+            const rows = database.filter(item => item && item.isArchived === true).filter(item => {
+                const text = [item.jobOrder, item.poNum, item.kodeItem, item.produk, item.tanggal]
+                    .map(value => String(value || "").toLowerCase()).join(" ");
+                return text.includes(keyword);
+            }).sort((a, b) => {
+                const millis = value => value?.toDate ? value.toDate().getTime() : (value ? new Date(value).getTime() : 0);
+                return millis(b.archivedAt) - millis(a.archivedAt);
+            });
+            const summary = document.getElementById("archiveViewerSummary");
+            if (summary) summary.textContent = rows.length.toLocaleString("id-ID") + " arsip ditemukan";
+            body.innerHTML = "";
+            if (!rows.length) {
+                const tr = document.createElement("tr"), td = document.createElement("td");
+                td.colSpan = 9;
+                td.style.textAlign = "center";
+                td.style.padding = "18px";
+                td.style.color = "#718093";
+                td.textContent = keyword ? "Arsip tidak ditemukan." : "Belum ada JO CLOSED yang diarsipkan.";
+                tr.appendChild(td); body.appendChild(tr); return;
+            }
+            rows.forEach(item => {
+                const tr = document.createElement("tr");
+                const archivedAt = item.archivedAt?.toDate
+                    ? item.archivedAt.toDate().toLocaleString("id-ID")
+                    : (item.archivedAt ? String(item.archivedAt) : "-");
+                [
+                    item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-",
+                    item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
+                    Number(item.order || 0).toLocaleString("id-ID"),
+                    Number(item.hasil || 0).toLocaleString("id-ID"),
+                    Number(item.sisa || 0).toLocaleString("id-ID"),
+                    archivedAt
+                ].forEach(value => {
+                    const td = document.createElement("td");
+                    td.textContent = String(value);
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+        };
+
     </script>
 </body>
 </html>
