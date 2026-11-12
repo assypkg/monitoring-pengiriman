@@ -80,7 +80,7 @@ jobs:
           start = source.index("// --- Arsip JO CLOSED:")
           end = source.index("</script>", start)
           archive_code = source[start:end]
-          if "updateDoc" in archive_code or "deleteDoc" in archive_code || "setDoc" in archive_code:
+          if "updateDoc" in archive_code or "deleteDoc" in archive_code or "setDoc" in archive_code:
               raise SystemExit("Viewer archive page must remain read-only.")
 
           print(f"HTML parsed; {len(parser.ids)} IDs; {len(parser.scripts)} scripts.")
