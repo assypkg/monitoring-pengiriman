@@ -233,7 +233,26 @@
         .sub-item span { color: #718093; display: block; font-size: 8px; text-transform: uppercase; }
         .sub-item strong { color: var(--text-main); font-size: 10px; }
         .desktop-table-wrapper { display: none; }
-        @media (min-width: 768px) { body { padding: 20px; } .container { padding: 20px; } .summary-card-container { display: none; } .desktop-table-wrapper { display: block; } }
+        .archive-viewer-content { max-width: 1000px; width: 100%; }
+        .archive-viewer-filters { padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .archive-viewer-body { padding: 12px; overflow-y: auto; max-height: 65vh; background: #f8fafc; }
+        .archive-viewer-cards { margin-top: 0; }
+        .archive-viewer-desktop { display: none; }
+        .archive-sub-card { cursor: default; }
+        .archive-sub-card .sub-card-header { align-items: flex-start; gap: 8px; }
+        .archive-sub-card .sub-card-header strong { min-width: 0; overflow-wrap: anywhere; }
+        .archive-sub-card .sub-card-grid { grid-template-columns: 1fr 1fr; }
+        @media (min-width: 768px) {
+            body { padding: 20px; }
+            .container { padding: 20px; }
+            .summary-card-container { display: none; }
+            .desktop-table-wrapper { display: block; }
+            .archive-viewer-content { max-width: 1000px; }
+            .archive-viewer-filters { grid-template-columns: minmax(0, 1fr) 220px; align-items: center; }
+            .archive-viewer-filters #archiveViewerSummary { grid-column: 1 / -1; }
+            .archive-viewer-cards { display: none; }
+            .archive-viewer-desktop { display: block; }
+        }
 
         /* TOMBOL INSTALL PWA */
         .install-btn {
@@ -348,19 +367,21 @@
         <div id="dateGroupView" class="date-group-container"></div>
     </div>
 
-    <!-- MODAL ARSIP JO CLOSED: hanya-baca untuk Viewer -->
+    <!-- MODAL ARSIP JO CLOSED: kartu responsif di HP, tabel di desktop -->
     <div id="archiveViewerModal" class="modal-overlay" onclick="tutupArsipViewer(event)">
-        <div class="modal-content" style="max-width:1000px;width:100%;" onclick="event.stopPropagation()">
+        <div class="modal-content archive-viewer-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span>Arsip JO CLOSED</span>
                 <button class="modal-close-btn" onclick="tutupArsipViewer()">&times;</button>
             </div>
-            <div style="padding:12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+            <div class="archive-viewer-filters">
                 <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="renderArsipViewer()">
-                <div id="archiveViewerSummary" style="font-size:10px;color:#718093;margin-top:7px;">Memuat arsip...</div>
+                <input type="date" id="archiveViewerDate" class="search-box" aria-label="Cari berdasarkan tanggal pengiriman" title="Cari berdasarkan tanggal pengiriman" onchange="renderArsipViewer()">
+                <div id="archiveViewerSummary" style="font-size:10px;color:#718093;">Memuat arsip...</div>
             </div>
-            <div style="padding:12px;overflow:auto;max-height:65vh;">
-                <div class="table-responsive">
+            <div class="archive-viewer-body">
+                <div id="archiveViewerCards" class="date-group-container archive-viewer-cards"></div>
+                <div class="table-responsive archive-viewer-desktop">
                     <table class="desktop-table" style="min-width:850px;background:white;">
                         <thead><tr>
                             <th>Tanggal Kirim</th><th>Job Order</th><th>PO#</th><th>Kode Item</th>
@@ -867,7 +888,9 @@
         // --- Arsip JO CLOSED: tampilan read-only Viewer ---
         window.bukaArsipViewer = function() {
             const search = document.getElementById("archiveViewerSearch");
+            const date = document.getElementById("archiveViewerDate");
             if (search) search.value = "";
+            if (date) date.value = "";
             renderArsipViewer();
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "flex";
@@ -879,28 +902,97 @@
         };
         window.renderArsipViewer = function() {
             const body = document.getElementById("archiveViewerBody");
-            if (!body) return;
+            const cards = document.getElementById("archiveViewerCards");
+            if (!body || !cards) return;
             const keyword = String(document.getElementById("archiveViewerSearch")?.value || "").trim().toLowerCase();
+            const selectedDate = String(document.getElementById("archiveViewerDate")?.value || "").trim();
             const rows = database.filter(item => item && item.isArchived === true).filter(item => {
                 const text = [item.jobOrder, item.poNum, item.kodeItem, item.produk, item.tanggal]
                     .map(value => String(value || "").toLowerCase()).join(" ");
-                return text.includes(keyword);
+                return text.includes(keyword) && (!selectedDate || String(item.tanggal || "") === selectedDate);
             }).sort((a, b) => {
+                const dateCompare = String(b.tanggal || "").localeCompare(String(a.tanggal || ""));
+                if (dateCompare) return dateCompare;
                 const millis = value => value?.toDate ? value.toDate().getTime() : (value ? new Date(value).getTime() : 0);
                 return millis(b.archivedAt) - millis(a.archivedAt);
             });
             const summary = document.getElementById("archiveViewerSummary");
-            if (summary) summary.textContent = rows.length.toLocaleString("id-ID") + " arsip ditemukan";
+            if (summary) summary.textContent = rows.length.toLocaleString("id-ID") + " arsip ditemukan" +
+                (selectedDate ? " • Tanggal kirim: " + formatHariTanggal(selectedDate).tanggalFormatted : "");
             body.innerHTML = "";
+            cards.innerHTML = "";
             if (!rows.length) {
+                const message = keyword || selectedDate ? "Arsip tidak ditemukan." : "Belum ada JO CLOSED yang diarsipkan.";
                 const tr = document.createElement("tr"), td = document.createElement("td");
-                td.colSpan = 9;
-                td.style.textAlign = "center";
-                td.style.padding = "18px";
-                td.style.color = "#718093";
-                td.textContent = keyword ? "Arsip tidak ditemukan." : "Belum ada JO CLOSED yang diarsipkan.";
-                tr.appendChild(td); body.appendChild(tr); return;
+                td.colSpan = 9; td.style.textAlign = "center"; td.style.padding = "18px";
+                td.style.color = "#718093"; td.textContent = message;
+                tr.appendChild(td); body.appendChild(tr);
+                const empty = document.createElement("div");
+                empty.style.cssText = "text-align:center;color:#718093;padding:20px;background:white;border-radius:8px;";
+                empty.textContent = message; cards.appendChild(empty);
+                return;
             }
+
+            const grouped = {};
+            rows.forEach(item => {
+                const dateKey = item.tanggal || "Tanpa Tanggal";
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(item);
+            });
+
+            Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(dateKey => {
+                const dateItems = grouped[dateKey];
+                const dateInfo = dateKey === "Tanpa Tanggal" ? null : formatHariTanggal(dateKey);
+                const group = document.createElement("div");
+                group.className = "date-group-box";
+                const header = document.createElement("div");
+                header.className = "date-group-header";
+                const dateLabel = document.createElement("span");
+                dateLabel.textContent = "📅 " + (dateInfo ? dateInfo.hari.toUpperCase() + ", " + dateInfo.tanggalFormatted : dateKey);
+                const count = document.createElement("span");
+                count.style.cssText = "font-size:10px;background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;";
+                count.textContent = dateItems.length + " Job Order";
+                header.append(dateLabel, count);
+                group.appendChild(header);
+                const content = document.createElement("div");
+                content.className = "date-group-content";
+                dateItems.forEach(item => {
+                    const isClosed = Number(item.sisa || 0) <= 0;
+                    const card = document.createElement("div");
+                    card.className = "sub-card archive-sub-card " + (isClosed ? "closed" : "open");
+                    const cardHeader = document.createElement("div");
+                    cardHeader.className = "sub-card-header";
+                    const title = document.createElement("strong");
+                    title.style.cssText = "color:var(--primary);font-size:11px;";
+                    title.textContent = (item.produk || "-") + " (" + (item.kodeItem || "-") + ")";
+                    const status = document.createElement("div");
+                    status.innerHTML = isClosed ? '<span class="status-close">✓ CLOSED</span>' : '<span class="status-open">⚠️ OPEN</span>';
+                    cardHeader.append(title, status);
+                    const grid = document.createElement("div");
+                    grid.className = "sub-card-grid";
+                    const fields = [
+                        ["Job Order", item.jobOrder || "-"], ["PO#", item.poNum || "-"],
+                        ["Order / Hasil", Number(item.order || 0).toLocaleString("id-ID") + " / " + Number(item.hasil || 0).toLocaleString("id-ID")],
+                        ["Sisa", Number(item.sisa || 0).toLocaleString("id-ID")],
+                        ["Tanggal Arsip", item.archivedAt?.toDate ? item.archivedAt.toDate().toLocaleString("id-ID") : (item.archivedAt ? String(item.archivedAt) : "-")]
+                    ];
+                    fields.forEach(([label, value]) => {
+                        const cell = document.createElement("div");
+                        cell.className = "sub-item";
+                        const caption = document.createElement("span");
+                        caption.textContent = label;
+                        const strong = document.createElement("strong");
+                        strong.textContent = value;
+                        cell.append(caption, strong);
+                        grid.appendChild(cell);
+                    });
+                    card.append(cardHeader, grid);
+                    content.appendChild(card);
+                });
+                group.appendChild(content);
+                cards.appendChild(group);
+            });
+
             rows.forEach(item => {
                 const tr = document.createElement("tr");
                 const archivedAt = item.archivedAt?.toDate
@@ -911,8 +1003,7 @@
                     item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
                     Number(item.order || 0).toLocaleString("id-ID"),
                     Number(item.hasil || 0).toLocaleString("id-ID"),
-                    Number(item.sisa || 0).toLocaleString("id-ID"),
-                    archivedAt
+                    Number(item.sisa || 0).toLocaleString("id-ID"), archivedAt
                 ].forEach(value => {
                     const td = document.createElement("td");
                     td.textContent = String(value);
