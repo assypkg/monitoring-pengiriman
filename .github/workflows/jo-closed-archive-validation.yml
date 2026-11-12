@@ -1,0 +1,90 @@
+name: JO Closed Archive Viewer Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [jo-closed-archive]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate read-only archive viewer
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Extractor(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids = []
+                  self.scripts = []
+                  self.current = []
+                  self.script_type = ""
+                  self.in_script = False
+
+              def handle_starttag(self, tag, attrs):
+                  attrs = dict(attrs)
+                  if "id" in attrs:
+                      self.ids.append(attrs["id"])
+                  if tag == "script":
+                      self.in_script = True
+                      self.current = []
+                      self.script_type = attrs.get("type", "")
+
+              def handle_data(self, data):
+                  if self.in_script:
+                      self.current.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag == "script" and self.in_script:
+                      self.scripts.append((self.script_type, "".join(self.current)))
+                      self.in_script = False
+
+          source = Path("index.html").read_text(encoding="utf-8")
+          parser = Extractor()
+          parser.feed(source)
+          duplicates = sorted({value for value in parser.ids if parser.ids.count(value) > 1})
+          if duplicates:
+              raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
+
+          modules = [code for kind, code in parser.scripts if kind == "module"]
+          scripts = [code for kind, code in parser.scripts if kind != "module"]
+          if not modules or not scripts:
+              raise SystemExit("Expected Firebase module script and application script.")
+          Path("/tmp/monitor-module.mjs").write_text("\n;\n".join(modules), encoding="utf-8")
+          Path("/tmp/monitor-app.js").write_text("\n;\n".join(scripts), encoding="utf-8")
+
+          required = [
+              'collection(window.db, "production_data_v2")',
+              'id="archiveViewerModal"',
+              'id="archiveViewerSearch"',
+              'id="viewerArchiveCount"',
+              "window.bukaArsipViewer",
+              "window.renderArsipViewer",
+              "item.isArchived === true",
+              "item.isArchived !== true",
+              "const activeRecords = database.filter(item => item && item.isArchived !== true)",
+          ]
+          for marker in required:
+              if marker not in source:
+                  raise SystemExit("Missing archive viewer marker: " + marker)
+
+          start = source.index("// --- Arsip JO CLOSED:")
+          end = source.index("</script>", start)
+          archive_code = source[start:end]
+          if "updateDoc" in archive_code or "deleteDoc" in archive_code || "setDoc" in archive_code:
+              raise SystemExit("Viewer archive page must remain read-only.")
+
+          print(f"HTML parsed; {len(parser.ids)} IDs; {len(parser.scripts)} scripts.")
+          print("Viewer archive is read-only and archived records are separated from active dashboard.")
+          PY
+          node --check /tmp/monitor-module.mjs
+          node --check /tmp/monitor-app.js
