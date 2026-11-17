@@ -27,7 +27,7 @@
     <!-- Firebase SDK Modular CDN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, query, orderBy, getDocs, where, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, getDocs, getCountFromServer, where, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCi7Tr4DDGvWg-a8Fd_tybUS7bBq0hrvaY",
@@ -43,7 +43,7 @@
         const db = getFirestore(app);
 
         window.db = db;
-        window.fbModules = { collection, onSnapshot, query, orderBy, getDocs, where, doc, updateDoc, arrayUnion };
+        window.fbModules = { collection, onSnapshot, query, orderBy, getDocs, getCountFromServer, where, doc, updateDoc, arrayUnion };
         
         checkSessionToken();
     </script>
@@ -418,6 +418,9 @@
         let database = [];
         let archiveViewerPage = 1;
         const ARCHIVE_VIEWER_PAGE_SIZE = 50;
+        let archiveOnlyListener = false;
+        let archiveCountCache = 0;
+        let archiveCountRefreshTimer = null;
         const ARCHIVE_SUPABASE_URL = "https://wcsjjdzxnwhzqkqninky.supabase.co";
         const ARCHIVE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_UadEwYUBc9Whu3m7VKrF6g_lAjS_Y4U";
         let archiveViewerRows = [];
@@ -605,18 +608,85 @@
         }
 
         // 7. Penarikan Data Real-time
-        function initRealtimeSync() {
-            const { collection, onSnapshot, query, orderBy } = window.fbModules;
-            const q = query(collection(window.db, "production_data_v2"), orderBy("tanggal", "asc"));
+        function jadwalkanRefreshJumlahArsip() {
+            if (!archiveOnlyListener) return;
+            if (archiveCountRefreshTimer) clearTimeout(archiveCountRefreshTimer);
+            archiveCountRefreshTimer = setTimeout(async () => {
+                try {
+                    const { collection, query, where, getCountFromServer } = window.fbModules;
+                    const archivedQuery = query(
+                        collection(window.db, "production_data_v2"),
+                        where("isArchived", "==", true)
+                    );
+                    const countSnapshot = await getCountFromServer(archivedQuery);
+                    archiveCountCache = Number(countSnapshot.data().count || 0);
+                    updateGlobalKPI();
+                } catch (error) {
+                    console.error("Gagal memperbarui jumlah arsip Firestore:", error);
+                }
+            }, 1500);
+        }
 
-            onSnapshot(q, (snapshot) => {
+        async function initRealtimeSync() {
+            const { collection, onSnapshot, query, orderBy, where, getCountFromServer } = window.fbModules;
+            const shipmentCollection = collection(window.db, "production_data_v2");
+            let activeOnlyReady = false;
+
+            // Gunakan listener aktif-only hanya jika seluruh dokumen sudah memiliki
+            // penanda boolean. Jika migrasi metadata belum selesai, fallback ke listener lama.
+            try {
+                const activeQuery = query(shipmentCollection, where("isArchived", "==", false));
+                const archivedQuery = query(shipmentCollection, where("isArchived", "==", true));
+                const [totalCount, activeCount, archivedCount] = await Promise.all([
+                    getCountFromServer(shipmentCollection),
+                    getCountFromServer(activeQuery),
+                    getCountFromServer(archivedQuery)
+                ]);
+                const total = Number(totalCount.data().count || 0);
+                const active = Number(activeCount.data().count || 0);
+                const archived = Number(archivedCount.data().count || 0);
+                archiveCountCache = archived;
+                activeOnlyReady = active + archived === total;
+                archiveOnlyListener = activeOnlyReady;
+                console.info(
+                    "Summary shipment listener mode:",
+                    activeOnlyReady ? "active-only" : "compatibility fallback",
+                    { total, active, archived }
+                );
+            } catch (error) {
+                archiveOnlyListener = false;
+                console.warn("Aggregate archive counts unavailable; using compatibility listener:", error);
+            }
+
+            const shipmentQuery = archiveOnlyListener
+                ? query(shipmentCollection, where("isArchived", "==", false))
+                : query(shipmentCollection, orderBy("tanggal", "asc"));
+
+            onSnapshot(shipmentQuery, (snapshot) => {
                 database = [];
                 snapshot.forEach((docSnap) => {
                     database.push({ docId: docSnap.id, ...docSnap.data() });
                 });
                 renderTabel();
                 updateGlobalKPI();
-            }, (error) => { console.error(error); });
+                jadwalkanRefreshJumlahArsip();
+            }, (error) => {
+                console.error("Gagal mengambil data pengiriman Summary:", error);
+                // If active-only query is blocked (for example, older Firestore rules),
+                // fall back to the original full listener without changing stored data.
+                if (archiveOnlyListener) {
+                    archiveOnlyListener = false;
+                    const fallbackQuery = query(shipmentCollection, orderBy("tanggal", "asc"));
+                    onSnapshot(fallbackQuery, (fallbackSnapshot) => {
+                        database = [];
+                        fallbackSnapshot.forEach((docSnap) => {
+                            database.push({ docId: docSnap.id, ...docSnap.data() });
+                        });
+                        renderTabel();
+                        updateGlobalKPI();
+                    }, fallbackError => console.error(fallbackError));
+                }
+            });
         }
 
         function formatHariTanggal(tglStr) {
@@ -631,7 +701,9 @@
 
         function updateGlobalKPI() {
             const activeRecords = database.filter(item => item && item.isArchived !== true);
-            const archiveRecords = database.filter(item => item && item.isArchived === true);
+            const archiveRecords = archiveOnlyListener
+                ? null
+                : database.filter(item => item && item.isArchived === true);
             let totalOrder = 0, totalHasil = 0;
             activeRecords.forEach(item => {
                 totalOrder += item.order || 0;
@@ -639,7 +711,8 @@
             });
             let progress = totalOrder > 0 ? Math.round((totalHasil / totalOrder) * 100) : 0;
             const archiveCount = document.getElementById("viewerArchiveCount");
-            if (archiveCount) archiveCount.textContent = archiveRecords.length.toLocaleString("id-ID");
+            const archiveCountValue = archiveOnlyListener ? archiveCountCache : archiveRecords.length;
+            if (archiveCount) archiveCount.textContent = archiveCountValue.toLocaleString("id-ID");
             document.getElementById('kpiTotalJO').innerText = activeRecords.length.toLocaleString('en-US');
             document.getElementById('kpiTotalOrder').innerText = totalOrder.toLocaleString('en-US');
             document.getElementById('kpiTotalHasil').innerText = totalHasil.toLocaleString('en-US');
