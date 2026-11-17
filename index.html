@@ -389,7 +389,7 @@
                     <table class="desktop-table" style="min-width:850px;background:white;">
                         <thead><tr>
                             <th>Tanggal Kirim</th><th>Job Order</th><th>PO#</th><th>Kode Item</th>
-                            <th>Nama Produk</th><th>Order</th><th>Hasil</th><th>Sisa</th><th>Tanggal Arsip</th>
+                            <th>Nama Produk</th><th>Order</th><th>Hasil</th><th>Sisa</th><th>Keterangan</th><th>Tanggal Arsip</th>
                         </tr></thead>
                         <tbody id="archiveViewerBody"></tbody>
                     </table>
@@ -1119,7 +1119,7 @@
             if (!rows.length) {
                 const message = archiveViewerMessage || "Belum ada JO CLOSED yang diarsipkan.";
                 const tr = document.createElement("tr"), td = document.createElement("td");
-                td.colSpan = 9; td.style.textAlign = "center"; td.style.padding = "18px";
+                td.colSpan = 10; td.style.textAlign = "center"; td.style.padding = "18px";
                 td.style.color = "#718093"; td.textContent = message;
                 tr.appendChild(td); body.appendChild(tr);
                 const empty = document.createElement("div");
@@ -1169,6 +1169,7 @@
                         ["Job Order", item.jobOrder || "-"], ["PO#", item.poNum || "-"],
                         ["Order / Hasil", Number(item.order || 0).toLocaleString("id-ID") + " / " + Number(item.hasil || 0).toLocaleString("id-ID")],
                         ["Sisa", Number(item.sisa || 0).toLocaleString("id-ID")],
+                        ["Keterangan", item.ket || "-"],
                         ["Tanggal Arsip", item.archivedAt ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-"]
                     ];
                     fields.forEach(([label, value]) => {
@@ -1198,7 +1199,7 @@
                     item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
                     Number(item.order || 0).toLocaleString("id-ID"),
                     Number(item.hasil || 0).toLocaleString("id-ID"),
-                    Number(item.sisa || 0).toLocaleString("id-ID"), archivedAt
+                    Number(item.sisa || 0).toLocaleString("id-ID"), item.ket || "-", archivedAt
                 ].forEach(value => {
                     const td = document.createElement("td");
                     td.textContent = String(value);
