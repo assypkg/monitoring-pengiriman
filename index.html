@@ -948,7 +948,7 @@
             if (summary) summary.textContent = total.toLocaleString("id-ID") + " arsip ditemukan" +
                 (selectedDate ? " • Tanggal kirim: " + formatHariTanggal(selectedDate).tanggalFormatted : "") +
                 (total ? " • Menampilkan " + (startIndex + 1).toLocaleString("id-ID") + "–" + endIndex.toLocaleString("id-ID") : "");
-            if (pagination) pagination.style.display = total > 0 ? "flex" : "none";
+            if (pagination) pagination.style.display = totalPages > 1 ? "flex" : "none";
             const pageInfo = document.getElementById("archiveViewerPageInfo");
             const prev = document.getElementById("archiveViewerPrev");
             const next = document.getElementById("archiveViewerNext");
@@ -988,7 +988,8 @@
                 dateLabel.textContent = "📅 " + (dateInfo ? dateInfo.hari.toUpperCase() + ", " + dateInfo.tanggalFormatted : dateKey);
                 const count = document.createElement("span");
                 count.style.cssText = "font-size:10px;background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;";
-                count.textContent = dateItems.length + " Job Order";
+                const countOnDate = rows.filter(row => String(row.tanggal || "Tanpa Tanggal") === dateKey).length;
+                count.textContent = countOnDate + " Job Order";
                 header.append(dateLabel, count);
                 group.appendChild(header);
                 const content = document.createElement("div");
