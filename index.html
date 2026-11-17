@@ -347,6 +347,27 @@
             </div>
         </div>
 
+        <div class="summary-box" id="annualRecapPanel">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                    <div class="section-title" style="margin-bottom:3px;">REKAP TAHUNAN PENGIRIMAN</div>
+                    <div style="font-size:10px;color:#718093;">Tahun dihitung dari tanggal pengiriman. JO tahun sebelumnya tetap diperbarui sampai seluruhnya CLOSED dan H+1 selesai.</div>
+                </div>
+                <button type="button" onclick="loadAnnualShipmentRecap()" style="background:#2563eb;color:white;padding:7px 11px;border-radius:6px;font-size:11px;">Muat Ulang</button>
+            </div>
+            <div class="table-responsive" style="margin-top:10px;">
+                <table class="desktop-table" style="min-width:620px;background:white;">
+                    <thead><tr>
+                        <th>Tahun Pengiriman</th><th>Total JO</th><th>JO Closed</th><th>JO Open</th><th>Total Hasil</th><th>Status Tahun</th>
+                    </tr></thead>
+                    <tbody id="annualRecapTableBody">
+                        <tr><td colspan="6" style="text-align:center;color:#718093;">Menunggu verifikasi dan rekap data tahunan...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="annualRecapMessage" style="font-size:10px;color:#718093;margin-top:7px;">Rekap tahunan akan dimuat setelah token Viewer tervalidasi.</div>
+        </div>
+
         <div class="summary-box">
             <div class="section-title">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
@@ -664,6 +685,7 @@
 
         async function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy, where, getCountFromServer } = window.fbModules;
+            loadAnnualShipmentRecap();
             const shipmentCollection = collection(window.db, "production_data_v2");
             let activeOnlyReady = false;
 
@@ -723,6 +745,74 @@
                 }
             });
         }
+
+
+        // Rekap tahunan read-only. Sumber tahun adalah tanggal pengiriman.
+        function formatAnnualRecapNumber(value) {
+            return Number(value || 0).toLocaleString("id-ID");
+        }
+        function annualRecapStatus(status) {
+            return ({
+                FINAL: "FINAL",
+                WAITING_FINALIZATION: "MENUNGGU FINALISASI",
+                RUNNING: "BERJALAN",
+                UPCOMING: "BELUM DIMULAI"
+            })[status] || status || "-";
+        }
+        window.loadAnnualShipmentRecap = async function() {
+            const body = document.getElementById("annualRecapTableBody");
+            const message = document.getElementById("annualRecapMessage");
+            if (message) message.textContent = "Memeriksa data Firestore dan status finalisasi setiap tahun...";
+            const token = localStorage.getItem("assembly_access_token") || "";
+            if (!token) {
+                if (message) message.textContent = "Token Viewer tidak ditemukan. Silakan login ulang.";
+                return;
+            }
+            try {
+                const response = await fetch(ARCHIVE_SUPABASE_URL + "/functions/v1/annual-shipment-archive", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": ARCHIVE_SUPABASE_PUBLISHABLE_KEY
+                    },
+                    body: JSON.stringify({ action: "summary", token, deviceId: getDeviceId() })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success !== true) {
+                    throw new Error(result.error || "Rekap tahunan gagal dimuat.");
+                }
+                const years = Array.isArray(result.years) ? result.years : [];
+                if (body) {
+                    body.innerHTML = "";
+                    if (!years.length) {
+                        body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718093;">Belum ada data pengiriman bertanggal.</td></tr>';
+                    } else {
+                        years.forEach(item => {
+                            const tr = document.createElement("tr");
+                            const values = [
+                                item.year,
+                                formatAnnualRecapNumber(item.totalJO),
+                                formatAnnualRecapNumber(item.closedJO),
+                                formatAnnualRecapNumber(item.openJO),
+                                formatAnnualRecapNumber(item.totalHasil),
+                                annualRecapStatus(item.status)
+                            ];
+                            values.forEach(value => {
+                                const td = document.createElement("td");
+                                td.textContent = String(value);
+                                tr.appendChild(td);
+                            });
+                            body.appendChild(tr);
+                        });
+                    }
+                }
+                if (message) message.textContent = "Rekap berhasil diperbarui. Status FINAL hanya diberikan bila seluruh baris tahun tersebut CLOSED, telah masuk arsip Supabase, dan melewati H+1.";
+            } catch (error) {
+                if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#b91c1c;">Rekap tahunan belum dapat dimuat.</td></tr>';
+                if (message) message.textContent = "Gagal memuat rekap tahunan: " + (error.message || "Kesalahan koneksi.");
+                console.error("Annual shipment recap:", error);
+            }
+        };
 
         function formatHariTanggal(tglStr) {
             if (!tglStr) return { hari: '-', tanggalFormatted: '-' };
