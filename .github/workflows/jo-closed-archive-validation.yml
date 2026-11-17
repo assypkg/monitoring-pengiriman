@@ -40,6 +40,15 @@ jobs:
               raise SystemExit("Annual recap pane is not closed before archive tabs; Data Arsip would be hidden.")
           if tabs_start < annual_start:
               raise SystemExit("Archive tabs must be siblings of the annual pane.")
+          archive_start = source.index('<section id="archiveViewerModal"')
+          archive_end = source.index('<!-- MODAL POP-UP DETAIL -->', archive_start)
+          archive_page = source[archive_start:archive_end]
+          if 'class="modal-overlay"' in archive_page or 'class="modal-content' in archive_page:
+              raise SystemExit("Archive Closed must be a full page, not a modal.")
+          if 'id="mainDashboard"' not in source or 'body.archive-page-active #mainDashboard' not in source:
+              raise SystemExit("Main dashboard must hide while the archive page is active.")
+          if "window.tutupArsipViewer = function()" not in source:
+              raise SystemExit("Archive page must provide a return-to-dashboard action.")
           print("Data Arsip is the default tab; annual summary is lazy-loaded only on selection.")
           PY
 
