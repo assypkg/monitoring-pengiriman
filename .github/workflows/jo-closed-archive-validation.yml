@@ -28,7 +28,7 @@ jobs:
           for marker in required:
               if marker not in source:
                   raise SystemExit("Missing archive tab marker: " + marker)
-          open_fn = source[source.index("window.bukaArsipViewer = async function()"):source.index("window.tutupArsipViewer = function(event)")]
+          open_fn = source[source.index("window.bukaArsipViewer = async function()"):source.index("window.tutupArsipViewer = function()")]
           if "loadAnnualShipmentRecap()" in open_fn:
               raise SystemExit("Annual summary must not load when the archive modal first opens.")
           if 'id="archiveViewerDataTabPane"' not in source or 'id="annualRecapTabPane"' not in source:
