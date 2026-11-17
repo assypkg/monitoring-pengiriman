@@ -426,6 +426,7 @@
         let archiveViewerLoading = false;
         let archiveViewerMessage = "";
         let archiveViewerSearchTimer = null;
+        let archiveViewerRequestId = 0;
 
         // 1. Logika Generator Device ID Browser dengan Deteksi OS
         function getDeviceId() {
@@ -931,7 +932,9 @@
             archiveViewerCursors = [0];
             archiveViewerRows = [];
             archiveViewerHasMore = false;
-            archiveViewerMessage = "";
+            archiveViewerMessage = "Menerapkan filter...";
+            archiveViewerRequestId++;
+            archiveViewerLoading = false;
             if (archiveViewerSearchTimer) clearTimeout(archiveViewerSearchTimer);
             archiveViewerSearchTimer = setTimeout(() => loadArsipViewerPage(1), 300);
         };
@@ -945,7 +948,7 @@
         };
 
         async function loadArsipViewerPage(page) {
-            if (archiveViewerLoading) return;
+            const requestId = ++archiveViewerRequestId;
             const token = localStorage.getItem("assembly_access_token") || "";
             const deviceId = getDeviceId();
             if (!token) {
@@ -987,6 +990,7 @@
                     throw new Error(result.error || "Arsip Supabase gagal dimuat.");
                 }
 
+                if (requestId !== archiveViewerRequestId) return;
                 archiveViewerRows = Array.isArray(result.records) ? result.records : [];
                 archiveViewerHasMore = result.hasMore === true &&
                     Number.isSafeInteger(Number(result.nextCursor));
@@ -1000,13 +1004,16 @@
                         ? "Belum ada hasil pada bagian ini. Tekan Berikutnya untuk melanjutkan pencarian."
                         : (search || deliveryDate ? "Arsip tidak ditemukan sesuai filter." : "Belum ada JO CLOSED yang diarsipkan."));
             } catch (error) {
+                if (requestId !== archiveViewerRequestId) return;
                 archiveViewerRows = [];
                 archiveViewerHasMore = false;
                 archiveViewerMessage = "Gagal memuat arsip Supabase: " + (error.message || "Kesalahan koneksi.");
                 console.error("Gagal memuat arsip Summary dari Supabase:", error);
             } finally {
-                archiveViewerLoading = false;
-                renderArsipViewer();
+                if (requestId === archiveViewerRequestId) {
+                    archiveViewerLoading = false;
+                    renderArsipViewer();
+                }
             }
         }
 
