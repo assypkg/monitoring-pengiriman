@@ -1490,7 +1490,7 @@
                     [
                         ['ORDER', item.order, ''],
                         ['HASIL', item.hasil, 'result'],
-                        ['SISA', item.sisa, 'remaining']
+                        ['SISA', remaining, 'remaining']
                     ].forEach(([label, value, kind]) => {
                         const metric = document.createElement('div');
                         metric.className = 'active-live-qty ' + kind;
