@@ -110,6 +110,13 @@ jobs:
               "item.isArchived === true",
               "item.isArchived !== true",
               "const activeRecords = database.filter(item => item && item.isArchived !== true)",
+              "active-live-identity",
+              "active-live-fg",
+              "active-live-qty-grid",
+              "active-live-status",
+              "itemsList.forEach(item =>",
+              "groupContainer.appendChild(dateBox)",
+
               'id="annualRecapPanel"',
               'id="archiveViewerDataTabPane"',
               'id="annualRecapTabPane"',
