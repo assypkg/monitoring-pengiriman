@@ -14,6 +14,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Validate archive tab separation and lazy annual loading
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("index.html").read_text(encoding="utf-8")
+          required = [
+              'onclick="pilihTabArsipViewer(\'data\')"',
+              'onclick="pilihTabArsipViewer(\'annual\')"',
+              'if (isAnnual) loadAnnualShipmentRecap();',
+              'window.pilihTabArsipViewer("data");',
+          ]
+          for marker in required:
+              if marker not in source:
+                  raise SystemExit("Missing archive tab marker: " + marker)
+          open_fn = source[source.index("window.bukaArsipViewer = async function()"):source.index("window.tutupArsipViewer = function(event)")]
+          if "loadAnnualShipmentRecap()" in open_fn:
+              raise SystemExit("Annual summary must not load when the archive modal first opens.")
+          if 'id="archiveViewerDataTabPane"' not in source or 'id="annualRecapTabPane"' not in source:
+              raise SystemExit("Both archive tab panes are required.")
+          print("Data Arsip is the default tab; annual summary is lazy-loaded only on selection.")
+          PY
+
       - name: Validate read-only archive viewer
         shell: bash
         run: |
@@ -73,6 +95,11 @@ jobs:
               "item.isArchived !== true",
               "const activeRecords = database.filter(item => item && item.isArchived !== true)",
               'id="annualRecapPanel"',
+              'id="archiveViewerDataTabPane"',
+              'id="annualRecapTabPane"',
+              'id="archiveViewerDataTabBtn"',
+              'id="archiveViewerAnnualTabBtn"',
+              "window.pilihTabArsipViewer",
               "window.loadAnnualShipmentRecap",
               '/functions/v1/annual-shipment-archive',
               'action: "summary"',
