@@ -566,6 +566,24 @@
             .active-live-detail strong, .active-live-note strong { font-size:10px; }
         }
 
+            .active-live-jo, .active-live-fg { font-size:14px !important; }
+        .archive-jo-number, .archive-jo-code { font-size:13px !important; }
+        .archive-jo-code { display:inline !important; margin:0 0 0 7px !important; vertical-align:baseline; }
+        .archive-jo-identity { display:flex; align-items:baseline; flex-wrap:wrap; gap:5px; min-width:0; }
+        .summary-detail-card { width:100%; box-sizing:border-box; }
+        #modalBody .summary-detail-card .active-live-jo,
+        #modalBody .summary-detail-card .active-live-fg { font-size:14px !important; }
+        @media (max-width:767px) {
+            .active-live-jo, .active-live-fg { font-size:14px !important; }
+            .archive-jo-number, .archive-jo-code { font-size:13px !important; }
+            #modalBody { gap:8px; }
+            #modalBody .summary-detail-card { padding:10px 11px; gap:6px; }
+        }
+        @media (max-width:380px) {
+            .active-live-jo, .active-live-fg { font-size:13px !important; }
+            .archive-jo-number, .archive-jo-code { font-size:12px !important; }
+        }
+
     </style>
 </head>
 <body>
@@ -1161,6 +1179,24 @@
             return { hari: namaHari, tanggalFormatted: tanggalFormatted };
         }
 
+        function nilaiSisaPengirimanAktif(item) {
+            if (!item) return 0;
+            const raw = item.sisa;
+            if (raw !== undefined && raw !== null && String(raw).trim() !== "") {
+                const value = Number(raw);
+                if (Number.isFinite(value)) return value;
+            }
+            const order = Number(item.order || 0);
+            const hasil = Number(item.hasil || 0);
+            return Number.isFinite(order) && Number.isFinite(hasil) ? order - hasil : 0;
+        }
+
+        function dataPengirimanAktifTanggal(tanggal) {
+            return database.filter(item =>
+                item && item.isArchived !== true && String(item.tanggal || "") === String(tanggal || "")
+            );
+        }
+
         function updateGlobalKPI() {
             const activeRecords = database.filter(item => item && item.isArchived !== true);
             const archiveRecords = archiveOnlyListener
@@ -1183,56 +1219,100 @@
 
         // PERBAIKAN: POP-UP DETAIL MENERAPKAN SORTING OPEN DI ATAS LALU ABJAD A-Z
         function showDetailModal(tglStr) {
-            let infoWaktu = formatHariTanggal(tglStr);
-            document.getElementById('modalTitle').innerText = `Detail: ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}`;
-            let modalBody = document.getElementById('modalBody');
-            modalBody.innerHTML = '';
+            const infoWaktu = formatHariTanggal(tglStr);
+            const title = document.getElementById("modalTitle");
+            if (title) title.innerText = `Detail: ${infoWaktu.hari.toUpperCase()}, ${infoWaktu.tanggalFormatted}`;
 
-            let itemsOnDate = database.filter(item => item && item.isArchived !== true && item.tanggal === tglStr).sort((a, b) => {
-                // 1. Prioritaskan Status: OPEN (1) di atas CLOSED (0)
-                let isOpenA = a.sisa > 0 ? 1 : 0;
-                let isOpenB = b.sisa > 0 ? 1 : 0;
-                if (isOpenA !== isOpenB) {
-                    return isOpenB - isOpenA; 
-                }
-                
-                // 2. Jika status sama, urutkan Abjad Nama Produk A-Z
-                let prodA = (a.produk || '').toString().toLowerCase();
-                let prodB = (b.produk || '').toString().toLowerCase();
-                if (prodA < prodB) return -1;
-                if (prodA > prodB) return 1;
-                return 0;
+            const modalBody = document.getElementById("modalBody");
+            if (!modalBody) return;
+            modalBody.innerHTML = "";
+
+            // Detail selalu diambil dari database aktif terbaru (snapshot Firestore terakhir).
+            const itemsOnDate = dataPengirimanAktifTanggal(tglStr).sort((a, b) => {
+                const remainingA = nilaiSisaPengirimanAktif(a);
+                const remainingB = nilaiSisaPengirimanAktif(b);
+                const openA = remainingA > 0 ? 1 : 0;
+                const openB = remainingB > 0 ? 1 : 0;
+                if (openA !== openB) return openB - openA;
+                return String(a.produk || "").localeCompare(String(b.produk || ""), "id", { sensitivity: "base" });
             });
 
-            if (itemsOnDate.length === 0) {
-                modalBody.innerHTML = `<div style="text-align: center; color: #718093; padding: 15px; font-style: italic;">Tidak ada data pada tanggal ini.</div>`;
+            if (!itemsOnDate.length) {
+                const message = document.createElement("div");
+                message.className = "archive-viewer-empty";
+                message.textContent = "Tidak ada data aktif pada tanggal ini.";
+                modalBody.appendChild(message);
             } else {
                 itemsOnDate.forEach(item => {
-                    let isClosed = item.sisa <= 0;
-                    let cardStatusClass = isClosed ? 'closed' : 'open';
-                    let statusBadge = isClosed ? '<span class="status-close">✓ CLOSED</span>' : '<span class="status-open">⚠️ OPEN</span>';
-                    let sisaClass = item.sisa > 0 ? 'sisa-open' : '';
-                    let displayPo = item.poNum || '-';
+                    const remaining = nilaiSisaPengirimanAktif(item);
+                    const isClosed = remaining <= 0;
+                    const card = document.createElement("article");
+                    card.className = `sub-card active-live-card ${isClosed ? "closed" : "open"} summary-detail-card`;
 
-                    let subCard = document.createElement('div');
-                    subCard.className = `sub-card ${cardStatusClass}`;
-                    subCard.innerHTML = `
-                        <div class="sub-card-header">
-                            <strong style="color: var(--primary); font-size: 11px;">${item.produk} <span style="font-weight:normal; color:#718093;">(${item.kodeItem})</span></strong>
-                            <div>${statusBadge}</div>
-                        </div>
-                        <div class="sub-card-grid">
-                            <div class="sub-item"><span>Job Order</span><strong>${item.jobOrder}</strong></div>
-                            <div class="sub-item"><span>PO#</span><strong>${displayPo}</strong></div>
-                            <div class="sub-item"><span>Order / Hasil</span><strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong></div>
-                            <div class="sub-item"><span>Sisa</span><strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong></div>
-                        </div>
-                        <div style="margin-top: 4px; font-size: 9px; color: #666;">Ket: ${item.ket || '-'}</div>
-                    `;
-                    modalBody.appendChild(subCard);
+                    const heading = document.createElement("div");
+                    heading.className = "active-live-heading";
+                    const identity = document.createElement("div");
+                    identity.className = "active-live-identity";
+
+                    const joLabel = document.createElement("span");
+                    joLabel.className = "active-live-label";
+                    joLabel.textContent = "JO";
+                    const joNumber = document.createElement("strong");
+                    joNumber.className = "active-live-jo";
+                    joNumber.textContent = item.jobOrder || "-";
+                    const fgCode = document.createElement("span");
+                    fgCode.className = "active-live-fg";
+                    fgCode.textContent = item.kodeItem || "-";
+                    identity.append(joLabel, joNumber, fgCode);
+
+                    const status = document.createElement("span");
+                    status.className = `active-live-status ${isClosed ? "closed" : "open"}`;
+                    status.textContent = isClosed ? "CLOSED" : "OPEN";
+                    heading.append(identity, status);
+
+                    const product = document.createElement("div");
+                    product.className = "active-live-product";
+                    product.textContent = item.produk || "-";
+
+                    const qtyGrid = document.createElement("div");
+                    qtyGrid.className = "active-live-qty-grid";
+                    [
+                        ["ORDER", item.order, ""],
+                        ["HASIL", item.hasil, "result"],
+                        ["SISA", remaining, "remaining"]
+                    ].forEach(([label, value, kind]) => {
+                        const metric = document.createElement("div");
+                        metric.className = "active-live-qty " + kind;
+                        const caption = document.createElement("span");
+                        caption.textContent = label;
+                        const number = document.createElement("strong");
+                        number.textContent = Number(value || 0).toLocaleString("id-ID");
+                        metric.append(caption, number);
+                        qtyGrid.appendChild(metric);
+                    });
+
+                    const details = document.createElement("div");
+                    details.className = "active-live-details";
+                    const addDetail = (label, value, extraClass = "") => {
+                        const line = document.createElement("div");
+                        line.className = "active-live-detail " + extraClass;
+                        const caption = document.createElement("span");
+                        caption.textContent = label;
+                        const content = document.createElement("strong");
+                        content.textContent = String(value || "-");
+                        line.append(caption, content);
+                        details.appendChild(line);
+                    };
+                    addDetail("PO", item.poNum || "-");
+                    addDetail("KETERANGAN", item.ket || "", "active-live-note");
+
+                    card.append(heading, product, qtyGrid, details);
+                    modalBody.appendChild(card);
                 });
             }
-            document.getElementById('detailModal').style.display = 'flex';
+
+            const modal = document.getElementById("detailModal");
+            if (modal) modal.style.display = "flex";
         }
 
         function closeModal(event) { document.getElementById('detailModal').style.display = 'none'; }
@@ -1324,12 +1404,14 @@
                 }
             });
 
+            const activeRecordsForSummary = database.filter(item => item && item.isArchived !== true);
             let summaryMap = {};
-            database.filter(item => item && item.isArchived !== true).forEach(item => {
+            activeRecordsForSummary.forEach(item => {
                 let tgl = item.tanggal || 'Tanpa Tanggal';
                 if (!summaryMap[tgl]) summaryMap[tgl] = { total: 0, closed: 0, open: 0 };
                 summaryMap[tgl].total++;
-                if (item.sisa <= 0) summaryMap[tgl].closed++; else summaryMap[tgl].open++;
+                if (nilaiSisaPengirimanAktif(item) <= 0) summaryMap[tgl].closed++;
+                else summaryMap[tgl].open++;
             });
 
             let now = new Date();
@@ -1371,8 +1453,8 @@
                 contentDiv.className = 'date-group-content';
 
                 itemsList.forEach(item => {
-                    const remaining = Number(item.sisa || 0);
-                    const isClosed = Number.isFinite(remaining) && remaining <= 0;
+                    const remaining = nilaiSisaPengirimanAktif(item);
+                    const isClosed = remaining <= 0;
                     const displayPo = item.poNum || '-';
 
                     const subCard = document.createElement('article');
@@ -1826,13 +1908,17 @@
                     const heading = document.createElement("div");
                     heading.className = "archive-jo-heading";
                     const joBlock = document.createElement("div");
+                    joBlock.className = "archive-jo-identity";
                     const joLabel = document.createElement("span");
                     joLabel.className = "archive-jo-number-label";
                     joLabel.textContent = "JO";
                     const joNumber = document.createElement("strong");
                     joNumber.className = "archive-jo-number";
                     joNumber.textContent = item.jobOrder || "-";
-                    joBlock.append(joLabel, joNumber);
+                    const code = document.createElement("span");
+                    code.className = "archive-jo-code";
+                    code.textContent = item.kodeItem || "-";
+                    joBlock.append(joLabel, joNumber, code);
 
                     const status = document.createElement("span");
                     status.className = "archive-jo-status" + (isClosed ? "" : " is-open");
@@ -1842,10 +1928,6 @@
                     const product = document.createElement("div");
                     product.className = "archive-jo-product";
                     product.textContent = item.produk || "-";
-                    const code = document.createElement("span");
-                    code.className = "archive-jo-code";
-                    code.textContent = item.kodeItem || "-";
-                    product.appendChild(code);
 
                     const qtyGrid = document.createElement("div");
                     qtyGrid.className = "archive-jo-qty-grid";
