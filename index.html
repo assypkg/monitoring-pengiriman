@@ -235,6 +235,15 @@
         .desktop-table-wrapper { display: none; }
         .archive-viewer-content { max-width: 1000px; width: 100%; }
         .archive-viewer-filters { padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .archive-viewer-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+        .archive-viewer-date-range label { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: #64748b; font-size: 10px; font-weight: 700; }
+        .archive-viewer-date-range input { width: 100%; min-width: 0; box-sizing: border-box; }
+        .archive-viewer-apply-btn { grid-column: 1 / -1; min-height: 38px; padding: 8px 16px; border: 0; border-radius: 6px; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
+        .archive-viewer-apply-btn:disabled { opacity: .55; cursor: wait; }
+        .archive-viewer-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .archive-viewer-kpi-card { min-width: 0; padding: 10px 12px; border: 1px solid #dbe3ee; border-left: 4px solid var(--primary); border-radius: 8px; background: #fff; display: flex; flex-direction: column; gap: 4px; }
+        .archive-viewer-kpi-card span { color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .archive-viewer-kpi-card strong { color: var(--primary); font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
         .archive-viewer-body { padding: 12px; overflow-y: auto; max-height: 65vh; background: #f8fafc; }
         .archive-viewer-cards { margin-top: 0; }
         .archive-viewer-desktop { display: none; }
@@ -252,7 +261,10 @@
             .summary-card-container { display: none; }
             .desktop-table-wrapper { display: block; }
             .archive-viewer-content { max-width: 1000px; }
-            .archive-viewer-filters { grid-template-columns: minmax(0, 1fr) 220px; align-items: center; }
+            .archive-viewer-filters { grid-template-columns: minmax(0, 1fr); align-items: center; }
+            .archive-viewer-date-range { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+            .archive-viewer-apply-btn { grid-column: auto; min-width: 90px; }
+            .archive-viewer-filters #archiveViewerKpiMessage,
             .archive-viewer-filters #archiveViewerSummary { grid-column: 1 / -1; }
             .archive-viewer-cards { display: none; }
             .archive-viewer-desktop { display: block; }
@@ -380,7 +392,27 @@
             </div>
             <div class="archive-viewer-filters">
                 <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="filterArsipViewer()">
-                <input type="date" id="archiveViewerDate" class="search-box" aria-label="Cari berdasarkan tanggal pengiriman" title="Cari berdasarkan tanggal pengiriman" onchange="filterArsipViewer()">
+                <div class="archive-viewer-date-range">
+                    <label for="archiveViewerFromDate">Tanggal Kirim Dari
+                        <input type="date" id="archiveViewerFromDate" class="search-box">
+                    </label>
+                    <label for="archiveViewerToDate">Sampai
+                        <input type="date" id="archiveViewerToDate" class="search-box">
+                    </label>
+                    <button type="button" id="archiveViewerApplyBtn" class="archive-viewer-apply-btn" onclick="terapkanFilterArsipViewer()">OK</button>
+                </div>
+                <div id="archiveViewerFilterError" role="alert" style="display:none;color:#dc2626;font-size:11px;"></div>
+                <div class="archive-viewer-kpis">
+                    <div class="archive-viewer-kpi-card">
+                        <span>Jumlah JO CLOSED</span>
+                        <strong id="archiveViewerKpiClosed">—</strong>
+                    </div>
+                    <div class="archive-viewer-kpi-card">
+                        <span>Total Hasil</span>
+                        <strong id="archiveViewerKpiHasil">—</strong>
+                    </div>
+                </div>
+                <div id="archiveViewerKpiMessage" style="font-size:10px;color:#718093;">Menghitung KPI arsip...</div>
                 <div id="archiveViewerSummary" style="font-size:10px;color:#718093;">Memuat arsip...</div>
             </div>
             <div class="archive-viewer-body">
@@ -430,6 +462,9 @@
         let archiveViewerMessage = "";
         let archiveViewerSearchTimer = null;
         let archiveViewerRequestId = 0;
+        let archiveViewerSummaryRequestId = 0;
+        let archiveViewerAppliedFromDate = "";
+        let archiveViewerAppliedToDate = "";
 
         // 1. Logika Generator Device ID Browser dengan Deteksi OS
         function getDeviceId() {
@@ -981,9 +1016,15 @@
         // --- Arsip JO CLOSED: tampilan read-only Viewer ---
         window.bukaArsipViewer = async function() {
             const search = document.getElementById("archiveViewerSearch");
-            const date = document.getElementById("archiveViewerDate");
+            const fromDate = document.getElementById("archiveViewerFromDate");
+            const toDate = document.getElementById("archiveViewerToDate");
+            const filterError = document.getElementById("archiveViewerFilterError");
             if (search) search.value = "";
-            if (date) date.value = "";
+            if (fromDate) fromDate.value = "";
+            if (toDate) toDate.value = "";
+            if (filterError) { filterError.style.display = "none"; filterError.textContent = ""; }
+            archiveViewerAppliedFromDate = "";
+            archiveViewerAppliedToDate = "";
             archiveViewerPage = 1;
             archiveViewerCursors = [0];
             archiveViewerRows = [];
@@ -991,7 +1032,7 @@
             archiveViewerMessage = "";
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "flex";
-            await loadArsipViewerPage(1);
+            await Promise.all([loadArsipViewerPage(1), loadArsipViewerSummary()]);
         };
 
         window.tutupArsipViewer = function(event) {
@@ -1005,11 +1046,45 @@
             archiveViewerCursors = [0];
             archiveViewerRows = [];
             archiveViewerHasMore = false;
-            archiveViewerMessage = "Menerapkan filter...";
+            archiveViewerMessage = "Menerapkan pencarian...";
             archiveViewerRequestId++;
             archiveViewerLoading = false;
             if (archiveViewerSearchTimer) clearTimeout(archiveViewerSearchTimer);
-            archiveViewerSearchTimer = setTimeout(() => loadArsipViewerPage(1), 300);
+            archiveViewerSearchTimer = setTimeout(() => {
+                loadArsipViewerPage(1);
+                loadArsipViewerSummary();
+            }, 350);
+        };
+
+        window.terapkanFilterArsipViewer = async function() {
+            const fromDate = String(document.getElementById("archiveViewerFromDate")?.value || "").trim();
+            const toDate = String(document.getElementById("archiveViewerToDate")?.value || "").trim();
+            const filterError = document.getElementById("archiveViewerFilterError");
+            if (fromDate && toDate && fromDate > toDate) {
+                if (filterError) {
+                    filterError.textContent = "Tanggal awal tidak boleh melewati tanggal akhir.";
+                    filterError.style.display = "block";
+                }
+                return;
+            }
+            if (filterError) { filterError.style.display = "none"; filterError.textContent = ""; }
+            archiveViewerAppliedFromDate = fromDate;
+            archiveViewerAppliedToDate = toDate;
+            archiveViewerPage = 1;
+            archiveViewerCursors = [0];
+            archiveViewerRows = [];
+            archiveViewerHasMore = false;
+            archiveViewerMessage = "Menerapkan rentang tanggal...";
+            archiveViewerRequestId++;
+            archiveViewerLoading = false;
+            if (archiveViewerSearchTimer) clearTimeout(archiveViewerSearchTimer);
+            const button = document.getElementById("archiveViewerApplyBtn");
+            if (button) button.disabled = true;
+            try {
+                await Promise.all([loadArsipViewerPage(1), loadArsipViewerSummary()]);
+            } finally {
+                if (button) button.disabled = false;
+            }
         };
 
         window.ubahHalamanArsipViewer = async function(delta) {
@@ -1032,7 +1107,8 @@
             }
 
             const search = String(document.getElementById("archiveViewerSearch")?.value || "").trim();
-            const deliveryDate = String(document.getElementById("archiveViewerDate")?.value || "").trim();
+            const deliveryDateFrom = archiveViewerAppliedFromDate;
+            const deliveryDateTo = archiveViewerAppliedToDate;
             const cursor = Number(archiveViewerCursors[page - 1] || 0);
             archiveViewerLoading = true;
             archiveViewerMessage = "Mengambil arsip dari Supabase...";
@@ -1055,7 +1131,8 @@
                         cursor,
                         limit: ARCHIVE_VIEWER_PAGE_SIZE,
                         search,
-                        deliveryDate
+                        deliveryDateFrom,
+                        deliveryDateTo
                     })
                 });
                 const result = await response.json().catch(() => ({}));
@@ -1075,7 +1152,7 @@
                       Number(result.scanned || 0).toLocaleString("id-ID") + " file diperiksa"
                     : (archiveViewerHasMore
                         ? "Belum ada hasil pada bagian ini. Tekan Berikutnya untuk melanjutkan pencarian."
-                        : (search || deliveryDate ? "Arsip tidak ditemukan sesuai filter." : "Belum ada JO CLOSED yang diarsipkan."));
+                        : (search || deliveryDateFrom || deliveryDateTo ? "Arsip tidak ditemukan sesuai filter." : "Belum ada JO CLOSED yang diarsipkan."));
             } catch (error) {
                 if (requestId !== archiveViewerRequestId) return;
                 archiveViewerRows = [];
@@ -1087,6 +1164,58 @@
                     archiveViewerLoading = false;
                     renderArsipViewer();
                 }
+            }
+        }
+
+        async function loadArsipViewerSummary() {
+            const requestId = ++archiveViewerSummaryRequestId;
+            const closedEl = document.getElementById("archiveViewerKpiClosed");
+            const hasilEl = document.getElementById("archiveViewerKpiHasil");
+            const messageEl = document.getElementById("archiveViewerKpiMessage");
+            const token = localStorage.getItem("assembly_access_token") || "";
+            const deviceId = getDeviceId();
+            if (closedEl) closedEl.textContent = "—";
+            if (hasilEl) hasilEl.textContent = "—";
+            if (messageEl) messageEl.textContent = "Menghitung KPI seluruh arsip sesuai filter...";
+            if (!token) {
+                if (messageEl) messageEl.textContent = "Sesi Viewer tidak ditemukan. Silakan login ulang.";
+                return;
+            }
+
+            const search = String(document.getElementById("archiveViewerSearch")?.value || "").trim();
+            try {
+                const response = await fetch(ARCHIVE_SUPABASE_URL + "/functions/v1/viewer-archive-list", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": ARCHIVE_SUPABASE_PUBLISHABLE_KEY
+                    },
+                    body: JSON.stringify({
+                        action: "summary",
+                        token,
+                        deviceId,
+                        search,
+                        deliveryDateFrom: archiveViewerAppliedFromDate,
+                        deliveryDateTo: archiveViewerAppliedToDate
+                    })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success !== true) {
+                    throw new Error(result.error || "KPI arsip gagal dihitung.");
+                }
+                if (requestId !== archiveViewerSummaryRequestId) return;
+                if (closedEl) closedEl.textContent = Number(result.totalClosed || 0).toLocaleString("id-ID");
+                if (hasilEl) hasilEl.textContent = Number(result.totalHasil || 0).toLocaleString("id-ID");
+                if (messageEl) {
+                    const scanned = Number(result.scanned || 0).toLocaleString("id-ID");
+                    messageEl.textContent = "KPI dihitung dari seluruh arsip yang diperiksa (" + scanned + " file).";
+                }
+            } catch (error) {
+                if (requestId !== archiveViewerSummaryRequestId) return;
+                if (closedEl) closedEl.textContent = "—";
+                if (hasilEl) hasilEl.textContent = "—";
+                if (messageEl) messageEl.textContent = "KPI belum dapat dihitung: " + (error.message || "Kesalahan koneksi.");
+                console.error("Gagal menghitung KPI arsip Summary:", error);
             }
         }
 
