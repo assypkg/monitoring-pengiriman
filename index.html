@@ -475,6 +475,52 @@
             .archive-page-view .archive-viewer-body { max-height:none; overflow:visible; }
         }
 
+            .archive-viewer-empty { padding:18px 12px; text-align:center; color:#64748b; background:#fff; border:1px solid #dbe3ee; border-radius:8px; font-size:13px; }
+        .archive-date-group { display:flex; flex-direction:column; gap:4px; }
+        .archive-date-group-header { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:30px; padding:4px 9px; border-left:4px solid #203764; border-bottom:1px solid #d7e0eb; border-radius:5px; color:#203764; background:#eaf0f7; }
+        .archive-date-group-header strong { font-size:12px; line-height:1.2; font-weight:800; }
+        .archive-date-group-header span { flex:0 0 auto; color:#52647c; font-size:10px; font-weight:750; }
+        .archive-date-group-cards { display:flex; flex-direction:column; gap:5px; }
+        @media (max-width:767px) {
+            .archive-page-view .archive-viewer-cards { display:flex !important; flex-direction:column; gap:9px; }
+            .archive-page-view .archive-viewer-desktop { display:none !important; }
+            .archive-page-view .archive-viewer-body { padding:7px 8px; }
+            .archive-date-group { gap:4px; }
+            .archive-date-group-header { min-height:30px; padding:4px 8px; }
+            .archive-date-group-header strong { font-size:12px; }
+            .archive-date-group-header span { font-size:10px; }
+            .archive-date-group-cards { gap:5px; }
+            .archive-jo-card { padding:8px 9px; border-radius:8px; border-left-width:4px; }
+            .archive-jo-heading { gap:8px; margin-bottom:4px; padding-bottom:4px; }
+            .archive-jo-number-label { font-size:9px; }
+            .archive-jo-number { font-size:13px; line-height:1.2; }
+            .archive-jo-status { padding:3px 7px; font-size:9px; }
+            .archive-jo-product { margin:3px 0 5px; font-size:12px; font-weight:750; line-height:1.25; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+            .archive-jo-code { display:inline; margin-left:5px; font-size:10px; }
+            .archive-jo-qty-grid { gap:5px; margin-bottom:5px; }
+            .archive-jo-qty { padding:5px 6px; border-radius:6px; }
+            .archive-jo-qty span { font-size:9px; margin-right:3px; }
+            .archive-jo-qty strong { font-size:12px; line-height:1.15; }
+            .archive-jo-details { display:flex; flex-wrap:wrap; gap:3px 10px; padding-top:5px; }
+            .archive-jo-detail { display:flex; align-items:baseline; gap:4px; }
+            .archive-jo-detail.is-wide { flex-basis:100%; }
+            .archive-jo-detail span { display:inline; margin:0; font-size:9px; }
+            .archive-jo-detail strong { display:inline; font-size:10px; line-height:1.3; white-space:normal; overflow-wrap:anywhere; }
+            .archive-jo-detail.is-note strong { padding:0; }
+        }
+        @media (max-width:380px) {
+            .archive-date-group-header strong { font-size:11px; }
+            .archive-jo-number { font-size:12px; }
+            .archive-jo-product { font-size:11px; }
+            .archive-jo-qty span, .archive-jo-detail span { font-size:8px; }
+            .archive-jo-qty strong { font-size:11px; }
+            .archive-jo-detail strong { font-size:9px; }
+        }
+        @media (min-width:768px) {
+            .archive-page-view .archive-viewer-cards { display:none !important; }
+            .archive-page-view .archive-viewer-desktop { display:block !important; }
+        }
+
     </style>
 </head>
 <body>
@@ -1587,6 +1633,7 @@
             const cards = document.getElementById("archiveViewerCards");
             const pagination = document.getElementById("archiveViewerPagination");
             if (!body || !cards) return;
+
             const rows = archiveViewerRows.slice().sort((a, b) => {
                 const dateCompare = String(b.tanggal || "").localeCompare(String(a.tanggal || ""));
                 if (dateCompare) return dateCompare;
@@ -1610,104 +1657,74 @@
             cards.innerHTML = "";
             if (!rows.length) {
                 const message = archiveViewerMessage || "Belum ada JO CLOSED yang diarsipkan.";
-                const tr = document.createElement("tr"), td = document.createElement("td");
-                td.colSpan = 10; td.style.textAlign = "center"; td.style.padding = "18px";
-                td.style.color = "#718093"; td.textContent = message;
-                tr.appendChild(td); body.appendChild(tr);
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+                td.colSpan = 10;
+                td.style.textAlign = "center";
+                td.style.padding = "18px";
+                td.style.color = "#718093";
+                td.textContent = message;
+                tr.appendChild(td);
+                body.appendChild(tr);
+
                 const empty = document.createElement("div");
-                empty.style.cssText = "text-align:center;color:#718093;padding:20px;background:white;border-radius:8px;";
-                empty.textContent = message; cards.appendChild(empty);
+                empty.className = "archive-viewer-empty";
+                empty.textContent = message;
+                cards.appendChild(empty);
                 return;
             }
 
+            const archivedTime = item => item.archivedAt
+                ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
+                : "-";
+
+            // Desktop: tabel dengan seluruh kolom.
             rows.forEach(item => {
-                const isClosed = Number(item.sisa || 0) <= 0;
-                const card = document.createElement("article");
-                card.className = "sub-card archive-sub-card archive-jo-card " + (isClosed ? "closed" : "open");
-
-                const heading = document.createElement("div");
-                heading.className = "archive-jo-heading";
-                const joBlock = document.createElement("div");
-                const joLabel = document.createElement("span");
-                joLabel.className = "archive-jo-number-label";
-                joLabel.textContent = "JO";
-                const joNumber = document.createElement("strong");
-                joNumber.className = "archive-jo-number";
-                joNumber.textContent = item.jobOrder || "-";
-                joBlock.append(joLabel, joNumber);
-
-                const status = document.createElement("span");
-                status.className = "archive-jo-status" + (isClosed ? "" : " is-open");
-                status.textContent = isClosed ? "CLOSED" : "OPEN";
-                heading.append(joBlock, status);
-
-                const product = document.createElement("div");
-                product.className = "archive-jo-product";
-                product.textContent = (item.produk || "-") + " • " + (item.kodeItem || "-");
-
-                const qtyGrid = document.createElement("div");
-                qtyGrid.className = "archive-jo-qty-grid";
+                const tr = document.createElement("tr");
                 [
-                    ["Order", item.order, ""],
-                    ["Hasil", item.hasil, "is-result"],
-                    ["Sisa", item.sisa, ""]
-                ].forEach(([label, value, extraClass]) => {
-                    const metric = document.createElement("div");
-                    metric.className = "archive-jo-qty " + extraClass;
-                    const caption = document.createElement("span");
-                    caption.textContent = label;
-                    const number = document.createElement("strong");
-                    number.textContent = Number(value || 0).toLocaleString("id-ID");
-                    metric.append(caption, number);
-                    qtyGrid.appendChild(metric);
+                    item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-",
+                    item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
+                    Number(item.order || 0).toLocaleString("id-ID"),
+                    Number(item.hasil || 0).toLocaleString("id-ID"),
+                    Number(item.sisa || 0).toLocaleString("id-ID"),
+                    item.ket || "-", archivedTime(item)
+                ].forEach(value => {
+                    const td = document.createElement("td");
+                    td.textContent = String(value);
+                    tr.appendChild(td);
                 });
-
-                const details = document.createElement("div");
-                details.className = "archive-jo-details";
-                const addDetail = (label, value, wide = false, note = false) => {
-                    const cell = document.createElement("div");
-                    cell.className = "archive-jo-detail" +
-                        (wide ? " is-wide" : "") + (note ? " is-note" : "");
-                    const caption = document.createElement("span");
-                    caption.textContent = label;
-                    const content = document.createElement("strong");
-                    content.textContent = String(value || "-");
-                    cell.append(caption, content);
-                    details.appendChild(cell);
-                };
-                addDetail("PO", item.poNum || "-");
-                addDetail("Kirim", item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-");
-                addDetail("Arsip", item.archivedAt
-                    ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
-                    : "-");
-                addDetail("Ket", item.ket || "-", true, true);
-
-                card.append(heading, product, qtyGrid, details);
-                cards.appendChild(card);
+                body.appendChild(tr);
             });
 
+            // Mobile: kartu dikelompokkan kembali berdasarkan tanggal pengiriman.
+            const grouped = new Map();
             rows.forEach(item => {
-                const dateKey = item.tanggal || "Tanpa Tanggal";
-                if (!grouped[dateKey]) grouped[dateKey] = [];
-                grouped[dateKey].push(item);
+                const dateKey = String(item.tanggal || "Tanpa Tanggal");
+                if (!grouped.has(dateKey)) grouped.set(dateKey, []);
+                grouped.get(dateKey).push(item);
             });
 
-            Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(dateKey => {
-                const dateItems = grouped[dateKey];
-                const dateInfo = dateKey === "Tanpa Tanggal" ? null : formatHariTanggal(dateKey);
-                const group = document.createElement("div");
-                group.className = "date-group-box";
-                const header = document.createElement("div");
-                header.className = "date-group-header";
-                const dateLabel = document.createElement("span");
-                dateLabel.textContent = "📅 " + (dateInfo ? dateInfo.hari.toUpperCase() + ", " + dateInfo.tanggalFormatted : dateKey);
-                const count = document.createElement("span");
-                count.style.cssText = "font-size:10px;background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;";
-                count.textContent = dateItems.length + " Job Order";
-                header.append(dateLabel, count);
-                group.appendChild(header);
-                const content = document.createElement("div");
-                content.className = "date-group-content";
+            Array.from(grouped.keys()).sort((a, b) => b.localeCompare(a)).forEach(dateKey => {
+                const dateItems = grouped.get(dateKey) || [];
+                const group = document.createElement("section");
+                group.className = "archive-date-group";
+
+                const groupHeader = document.createElement("div");
+                groupHeader.className = "archive-date-group-header";
+                const dateTitle = document.createElement("strong");
+                if (dateKey === "Tanpa Tanggal") {
+                    dateTitle.textContent = "Tanggal pengiriman tidak tersedia";
+                } else {
+                    const dateInfo = formatHariTanggal(dateKey);
+                    dateTitle.textContent = dateInfo.hari.toUpperCase() + ", " + dateInfo.tanggalFormatted;
+                }
+                const groupCount = document.createElement("span");
+                groupCount.textContent = dateItems.length.toLocaleString("id-ID") + " JO";
+                groupHeader.append(dateTitle, groupCount);
+
+                const groupCards = document.createElement("div");
+                groupCards.className = "archive-date-group-cards";
+
                 dateItems.forEach(item => {
                     const isClosed = Number(item.sisa || 0) <= 0;
                     const card = document.createElement("article");
@@ -1718,7 +1735,7 @@
                     const joBlock = document.createElement("div");
                     const joLabel = document.createElement("span");
                     joLabel.className = "archive-jo-number-label";
-                    joLabel.textContent = "Job Order";
+                    joLabel.textContent = "JO";
                     const joNumber = document.createElement("strong");
                     joNumber.className = "archive-jo-number";
                     joNumber.textContent = item.jobOrder || "-";
@@ -1729,12 +1746,12 @@
                     status.textContent = isClosed ? "CLOSED" : "OPEN";
                     heading.append(joBlock, status);
 
-                    const product = document.createElement("h4");
+                    const product = document.createElement("div");
                     product.className = "archive-jo-product";
                     product.textContent = item.produk || "-";
                     const code = document.createElement("span");
                     code.className = "archive-jo-code";
-                    code.textContent = "Kode Item: " + (item.kodeItem || "-");
+                    code.textContent = item.kodeItem || "-";
                     product.appendChild(code);
 
                     const qtyGrid = document.createElement("div");
@@ -1768,37 +1785,15 @@
                         details.appendChild(cell);
                     };
                     addDetail("PO", item.poNum || "-");
-                    addDetail("Kirim", item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-");
-                    addDetail("Arsip", item.archivedAt
-                        ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
-                        : "-");
+                    addDetail("Arsip", archivedTime(item));
                     addDetail("Ket", item.ket || "-", true, true);
 
                     card.append(heading, product, qtyGrid, details);
-                    content.appendChild(card);
+                    groupCards.appendChild(card);
                 });
 
-                group.appendChild(content);
+                group.append(groupHeader, groupCards);
                 cards.appendChild(group);
-            });
-
-            rows.forEach(item => {
-                const tr = document.createElement("tr");
-                const archivedAt = item.archivedAt
-                    ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
-                    : "-";
-                [
-                    item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-",
-                    item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
-                    Number(item.order || 0).toLocaleString("id-ID"),
-                    Number(item.hasil || 0).toLocaleString("id-ID"),
-                    Number(item.sisa || 0).toLocaleString("id-ID"), item.ket || "-", archivedAt
-                ].forEach(value => {
-                    const td = document.createElement("td");
-                    td.textContent = String(value);
-                    tr.appendChild(td);
-                });
-                body.appendChild(tr);
             });
         };
 
