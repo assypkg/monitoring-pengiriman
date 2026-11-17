@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [jo-closed-archive]
+    branches: [main, jo-closed-archive]
 
 jobs:
   validate:
@@ -72,6 +72,10 @@ jobs:
               "item.isArchived === true",
               "item.isArchived !== true",
               "const activeRecords = database.filter(item => item && item.isArchived !== true)",
+              'id="annualRecapPanel"',
+              "window.loadAnnualShipmentRecap",
+              '/functions/v1/annual-shipment-archive',
+              'action: "summary"',
           ]
           for marker in required:
               if marker not in source:
