@@ -234,6 +234,19 @@
         .sub-item strong { color: var(--text-main); font-size: 10px; }
         .desktop-table-wrapper { display: none; }
         .archive-viewer-content { max-width: 1000px; width: 100%; }
+        @media (max-width:767px) {
+            #archiveViewerModal { padding:5px; align-items:stretch; }
+            .archive-viewer-content { width:100%; max-width:none; height:calc(100vh - 10px); max-height:calc(100vh - 10px); border-radius:12px; }
+            @supports (height: 100dvh) {
+                .archive-viewer-content { height:calc(100dvh - 10px); max-height:calc(100dvh - 10px); }
+            }
+            #archiveViewerDataTabPane { display:flex; flex:1; flex-direction:column; min-height:0; overflow:hidden; }
+            #annualRecapTabPane { flex:1; min-height:0; overflow-y:auto; }
+            .archive-viewer-filters { flex:0 0 auto; padding:10px; gap:7px; }
+            .archive-viewer-body { flex:1; min-height:0; max-height:none; padding:10px; overflow-y:auto; overscroll-behavior:contain; }
+            .archive-viewer-pagination { flex:0 0 auto; }
+        }
+
         .archive-viewer-filters { padding: 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: grid; grid-template-columns: 1fr; gap: 8px; }
         .archive-viewer-date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
         .archive-viewer-date-range label { display: flex; flex-direction: column; gap: 4px; min-width: 0; color: #64748b; font-size: 10px; font-weight: 700; }
@@ -1238,7 +1251,7 @@
             const annualPane = document.getElementById("annualRecapTabPane");
             const dataButton = document.getElementById("archiveViewerDataTabBtn");
             const annualButton = document.getElementById("archiveViewerAnnualTabBtn");
-            if (dataPane) dataPane.style.display = isAnnual ? "none" : "block";
+            if (dataPane) dataPane.style.display = isAnnual ? "none" : "flex";
             if (annualPane) annualPane.style.display = isAnnual ? "block" : "none";
             if (dataButton) {
                 dataButton.classList.toggle("is-active", !isAnnual);
