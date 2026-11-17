@@ -122,7 +122,7 @@ jobs:
               "summary-detail-card",
               "active-live-jo, .active-live-fg",
               "archive-jo-number, .archive-jo-code",
-              "['KEKURANGAN', remaining, 'remaining']",
+              "['KEKURANGAN', remaining, isClosed ? 'kekurangan-closed' : 'kekurangan-open']",
               "KEKURANGAN",
               ".active-live-qty.hasil-open strong",
               ".active-live-qty.hasil-closed strong",
