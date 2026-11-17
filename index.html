@@ -1251,7 +1251,7 @@
             const annualPane = document.getElementById("annualRecapTabPane");
             const dataButton = document.getElementById("archiveViewerDataTabBtn");
             const annualButton = document.getElementById("archiveViewerAnnualTabBtn");
-            if (dataPane) dataPane.style.display = isAnnual ? "none" : "flex";
+            if (dataPane) dataPane.style.display = isAnnual ? "none" : "";
             if (annualPane) annualPane.style.display = isAnnual ? "block" : "none";
             if (dataButton) {
                 dataButton.classList.toggle("is-active", !isAnnual);
