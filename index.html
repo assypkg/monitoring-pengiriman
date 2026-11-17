@@ -521,6 +521,51 @@
             .archive-page-view .archive-viewer-desktop { display:block !important; }
         }
 
+            .active-live-card { padding:11px 12px; border-radius:9px; border-left-width:4px; box-shadow:0 1px 4px rgba(15,23,42,.04); display:flex; flex-direction:column; gap:6px; }
+        .active-live-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:5px; border-bottom:1px solid #e8edf4; }
+        .active-live-identity { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px; min-width:0; }
+        .active-live-label { color:#748197; font-size:10px; font-weight:800; }
+        .active-live-jo { color:var(--primary); font-size:14px; font-weight:850; line-height:1.2; }
+        .active-live-fg { margin-left:2px; padding-left:7px; border-left:1px solid #cbd5e1; color:#52647c; font-size:11px; font-weight:750; overflow-wrap:anywhere; }
+        .active-live-status { flex:0 0 auto; padding:3px 8px; border-radius:20px; font-size:9px; font-weight:850; }
+        .active-live-status.closed { color:#16834b; background:#e9f8ef; }
+        .active-live-status.open { color:#c0392b; background:#fff0ef; }
+        .active-live-product { color:var(--text-main); font-size:13px; line-height:1.3; font-weight:750; overflow-wrap:anywhere; }
+        .active-live-qty-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+        .active-live-qty { min-width:0; padding:6px 7px; border:1px solid #e2e8f0; border-radius:7px; background:#f8fafc; }
+        .active-live-qty span { display:block; color:#64748b; font-size:9px; font-weight:800; letter-spacing:.2px; }
+        .active-live-qty strong { display:block; margin-top:3px; color:var(--primary); font-size:13px; line-height:1.15; font-weight:850; overflow-wrap:anywhere; }
+        .active-live-qty.result strong { color:var(--success); }
+        .active-live-qty.remaining strong { color:var(--danger); }
+        .active-live-details { display:flex; flex-direction:column; gap:4px; padding-top:5px; border-top:1px dashed #dce4ee; }
+        .active-live-detail, .active-live-note { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px; min-width:0; }
+        .active-live-detail span, .active-live-note span { color:#7b8798; font-size:9px; font-weight:850; }
+        .active-live-detail strong, .active-live-note strong { color:#334155; font-size:11px; line-height:1.3; font-weight:650; overflow-wrap:anywhere; }
+        .date-group-content { gap:7px; }
+        @media (max-width:767px) {
+            .date-group-container { gap:9px; }
+            .date-group-header { padding:7px 10px; font-size:12px; }
+            .active-live-card { padding:9px 10px; gap:5px; border-radius:8px; }
+            .active-live-heading { padding-bottom:4px; }
+            .active-live-jo { font-size:13px; }
+            .active-live-fg { font-size:10px; }
+            .active-live-product { font-size:12px; line-height:1.25; }
+            .active-live-qty-grid { gap:5px; }
+            .active-live-qty { padding:5px 6px; }
+            .active-live-qty span { font-size:9px; }
+            .active-live-qty strong { font-size:12px; }
+            .active-live-details { gap:3px; padding-top:4px; }
+            .active-live-detail span, .active-live-note span { font-size:9px; }
+            .active-live-detail strong, .active-live-note strong { font-size:10.5px; }
+        }
+        @media (max-width:380px) {
+            .active-live-jo { font-size:12px; }
+            .active-live-fg { font-size:9px; }
+            .active-live-product { font-size:11px; }
+            .active-live-qty strong { font-size:11px; }
+            .active-live-detail strong, .active-live-note strong { font-size:10px; }
+        }
+
     </style>
 </head>
 <body>
@@ -1326,27 +1371,75 @@
                 contentDiv.className = 'date-group-content';
 
                 itemsList.forEach(item => {
-                    let isClosed = item.sisa <= 0;
-                    let cardStatusClass = isClosed ? 'closed' : 'open';
-                    let statusBadge = isClosed ? '<span class="status-close">✓ CLOSED</span>' : '<span class="status-open">⚠️ OPEN</span>';
-                    let sisaClass = item.sisa > 0 ? 'sisa-open' : '';
-                    let displayPo = item.poNum || '-';
+                    const remaining = Number(item.sisa || 0);
+                    const isClosed = Number.isFinite(remaining) && remaining <= 0;
+                    const displayPo = item.poNum || '-';
 
-                    let subCard = document.createElement('div');
-                    subCard.className = `sub-card ${cardStatusClass}`;
-                    subCard.innerHTML = `
-                        <div class="sub-card-header">
-                            <strong style="color: var(--primary); font-size: 11px;">${item.produk} <span style="font-weight:normal; color:#718093;">(${item.kodeItem})</span></strong>
-                            <div>${statusBadge}</div>
-                        </div>
-                        <div class="sub-card-grid">
-                            <div class="sub-item"><span>Job Order</span><strong>${item.jobOrder}</strong></div>
-                            <div class="sub-item"><span>PO#</span><strong>${displayPo}</strong></div>
-                            <div class="sub-item"><span>Order / Hasil</span><strong>${(item.order || 0).toLocaleString('en-US')} / ${(item.hasil || 0).toLocaleString('en-US')}</strong></div>
-                            <div class="sub-item"><span>Sisa</span><strong class="${sisaClass}">${(item.sisa || 0).toLocaleString('en-US')}</strong></div>
-                        </div>
-                        <div style="margin-top: 4px; font-size: 9px; color: #666;">Ket: ${item.ket || '-'}</div>
-                    `;
+                    const subCard = document.createElement('article');
+                    subCard.className = `sub-card active-live-card ${isClosed ? 'closed' : 'open'}`;
+
+                    const heading = document.createElement('div');
+                    heading.className = 'active-live-heading';
+                    const identity = document.createElement('div');
+                    identity.className = 'active-live-identity';
+
+                    const joLabel = document.createElement('span');
+                    joLabel.className = 'active-live-label';
+                    joLabel.textContent = 'JO';
+                    const joNumber = document.createElement('strong');
+                    joNumber.className = 'active-live-jo';
+                    joNumber.textContent = item.jobOrder || '-';
+                    const fgCode = document.createElement('span');
+                    fgCode.className = 'active-live-fg';
+                    fgCode.textContent = item.kodeItem || '-';
+                    identity.append(joLabel, joNumber, fgCode);
+
+                    const status = document.createElement('span');
+                    status.className = `active-live-status ${isClosed ? 'closed' : 'open'}`;
+                    status.textContent = isClosed ? 'CLOSED' : 'OPEN';
+                    heading.append(identity, status);
+
+                    const product = document.createElement('div');
+                    product.className = 'active-live-product';
+                    product.textContent = item.produk || '-';
+
+                    const quantityGrid = document.createElement('div');
+                    quantityGrid.className = 'active-live-qty-grid';
+                    [
+                        ['ORDER', item.order, ''],
+                        ['HASIL', item.hasil, 'result'],
+                        ['SISA', item.sisa, 'remaining']
+                    ].forEach(([label, value, kind]) => {
+                        const metric = document.createElement('div');
+                        metric.className = 'active-live-qty ' + kind;
+                        const caption = document.createElement('span');
+                        caption.textContent = label;
+                        const number = document.createElement('strong');
+                        number.textContent = Number(value || 0).toLocaleString('id-ID');
+                        metric.append(caption, number);
+                        quantityGrid.appendChild(metric);
+                    });
+
+                    const details = document.createElement('div');
+                    details.className = 'active-live-details';
+                    const po = document.createElement('div');
+                    po.className = 'active-live-detail';
+                    const poLabel = document.createElement('span');
+                    poLabel.textContent = 'PO';
+                    const poValue = document.createElement('strong');
+                    poValue.textContent = displayPo;
+                    po.append(poLabel, poValue);
+
+                    const note = document.createElement('div');
+                    note.className = 'active-live-note';
+                    const noteLabel = document.createElement('span');
+                    noteLabel.textContent = 'KETERANGAN';
+                    const noteValue = document.createElement('strong');
+                    noteValue.textContent = item.ket || '-';
+                    note.append(noteLabel, noteValue);
+
+                    details.append(po, note);
+                    subCard.append(heading, product, quantityGrid, details);
                     contentDiv.appendChild(subCard);
                 });
 
