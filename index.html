@@ -431,6 +431,44 @@
         .archive-page-view .archive-viewer-desktop { display:none; }
         .archive-page-view .archive-viewer-pagination { margin-top:6px; }
 
+            @media (max-width:767px) {
+            .archive-page-header { min-height:40px; }
+            .archive-viewer-tabs { padding:3px; gap:4px; margin:0 7px 5px; }
+            .archive-viewer-tab { padding:6px 4px; gap:1px; }
+            .archive-viewer-tab span { font-size:11px; }
+            .archive-viewer-tab small { font-size:8px; }
+            .archive-viewer-filters { padding:6px 7px !important; gap:5px !important; }
+            #archiveViewerSearch { min-height:34px; padding:7px 9px; font-size:11px; }
+            .archive-viewer-date-range { grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:5px; }
+            .archive-viewer-date-range label { font-size:8px; gap:2px; }
+            .archive-viewer-date-range input { min-height:33px; padding:5px 6px; font-size:10px; }
+            .archive-viewer-apply-btn { grid-column:auto; min-width:43px; min-height:33px; padding:5px 8px; font-size:10px; }
+            .archive-viewer-kpis { gap:5px; }
+            .archive-viewer-kpi-card { padding:5px 7px; gap:2px; border-left-width:3px; border-radius:6px; }
+            .archive-viewer-kpi-card span { font-size:8px; }
+            .archive-viewer-kpi-card strong { font-size:15px; }
+            #archiveViewerKpiMessage, #archiveViewerSummary { font-size:8px !important; line-height:1.2; }
+            .archive-page-view .archive-viewer-body { padding:5px 6px; }
+            .archive-page-view .archive-viewer-cards { gap:4px; }
+            .archive-jo-card { padding:6px 8px; }
+            .archive-jo-heading { margin-bottom:2px; padding-bottom:2px; }
+            .archive-jo-number { font-size:10px; }
+            .archive-jo-product { margin:1px 0 3px; font-size:9px; }
+            .archive-jo-qty-grid { gap:3px; margin-bottom:3px; }
+            .archive-jo-qty { padding:2px 5px; }
+            .archive-jo-qty span, .archive-jo-detail span { font-size:6px; }
+            .archive-jo-qty strong { font-size:9px; }
+            .archive-jo-details { gap:1px 7px; padding-top:2px; }
+            .archive-jo-detail strong { font-size:7px; }
+            .archive-jo-detail.is-wide { flex-basis:100%; }
+        }
+        @media (max-width:380px) {
+            .archive-viewer-date-range { grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:3px; }
+            .archive-viewer-apply-btn { min-width:38px; padding:4px 5px; }
+            .archive-jo-card { padding:5px 7px; }
+            .archive-jo-qty strong { font-size:8px; }
+        }
+
     </style>
 </head>
 <body>
