@@ -425,6 +425,12 @@
             .archive-jo-detail strong { font-size:7px; }
         }
 
+            .archive-page-view .archive-viewer-body { max-height:none; overflow:visible; padding:6px 7px; }
+        .archive-page-view .archive-viewer-cards { display:flex; flex-direction:column; gap:5px; margin:0; }
+        .archive-page-view .archive-viewer-cards > .archive-jo-card { margin:0; }
+        .archive-page-view .archive-viewer-desktop { display:none; }
+        .archive-page-view .archive-viewer-pagination { margin-top:6px; }
+
     </style>
 </head>
 <body>
@@ -1570,7 +1576,72 @@
                 return;
             }
 
-            const grouped = {};
+            rows.forEach(item => {
+                const isClosed = Number(item.sisa || 0) <= 0;
+                const card = document.createElement("article");
+                card.className = "sub-card archive-sub-card archive-jo-card " + (isClosed ? "closed" : "open");
+
+                const heading = document.createElement("div");
+                heading.className = "archive-jo-heading";
+                const joBlock = document.createElement("div");
+                const joLabel = document.createElement("span");
+                joLabel.className = "archive-jo-number-label";
+                joLabel.textContent = "JO";
+                const joNumber = document.createElement("strong");
+                joNumber.className = "archive-jo-number";
+                joNumber.textContent = item.jobOrder || "-";
+                joBlock.append(joLabel, joNumber);
+
+                const status = document.createElement("span");
+                status.className = "archive-jo-status" + (isClosed ? "" : " is-open");
+                status.textContent = isClosed ? "CLOSED" : "OPEN";
+                heading.append(joBlock, status);
+
+                const product = document.createElement("div");
+                product.className = "archive-jo-product";
+                product.textContent = (item.produk || "-") + " • " + (item.kodeItem || "-");
+
+                const qtyGrid = document.createElement("div");
+                qtyGrid.className = "archive-jo-qty-grid";
+                [
+                    ["Order", item.order, ""],
+                    ["Hasil", item.hasil, "is-result"],
+                    ["Sisa", item.sisa, ""]
+                ].forEach(([label, value, extraClass]) => {
+                    const metric = document.createElement("div");
+                    metric.className = "archive-jo-qty " + extraClass;
+                    const caption = document.createElement("span");
+                    caption.textContent = label;
+                    const number = document.createElement("strong");
+                    number.textContent = Number(value || 0).toLocaleString("id-ID");
+                    metric.append(caption, number);
+                    qtyGrid.appendChild(metric);
+                });
+
+                const details = document.createElement("div");
+                details.className = "archive-jo-details";
+                const addDetail = (label, value, wide = false, note = false) => {
+                    const cell = document.createElement("div");
+                    cell.className = "archive-jo-detail" +
+                        (wide ? " is-wide" : "") + (note ? " is-note" : "");
+                    const caption = document.createElement("span");
+                    caption.textContent = label;
+                    const content = document.createElement("strong");
+                    content.textContent = String(value || "-");
+                    cell.append(caption, content);
+                    details.appendChild(cell);
+                };
+                addDetail("PO", item.poNum || "-");
+                addDetail("Kirim", item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-");
+                addDetail("Arsip", item.archivedAt
+                    ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
+                    : "-");
+                addDetail("Ket", item.ket || "-", true, true);
+
+                card.append(heading, product, qtyGrid, details);
+                cards.appendChild(card);
+            });
+
             rows.forEach(item => {
                 const dateKey = item.tanggal || "Tanpa Tanggal";
                 if (!grouped[dateKey]) grouped[dateKey] = [];
