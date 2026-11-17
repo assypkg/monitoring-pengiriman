@@ -584,6 +584,17 @@
             .archive-jo-number, .archive-jo-code { font-size:12px !important; }
         }
 
+            /* Status-aware colors: OPEN result black, OPEN shortage red; CLOSED result green, shortage zero black. */
+        .active-live-card.open .active-live-qty.result strong { color:#253858 !important; }
+        .active-live-card.open .active-live-qty.remaining strong { color:#d94b40 !important; }
+        .active-live-card.closed .active-live-qty.result strong { color:#27ae60 !important; }
+        .active-live-card.closed .active-live-qty.remaining strong { color:#253858 !important; }
+        .archive-jo-qty.is-result strong { color:#27ae60 !important; }
+        .archive-jo-qty.is-shortage strong { color:#253858 !important; }
+        .hasil-open { color:#253858 !important; font-weight:750; }
+        .hasil-closed { color:#27ae60 !important; font-weight:750; }
+        .kekurangan-open { color:#d94b40 !important; font-weight:750; }
+        .kekurangan-closed { color:#253858 !important; font-weight:750; }
     </style>
 </head>
 <body>
@@ -751,7 +762,7 @@
                     <table class="desktop-table" style="min-width:850px;background:white;">
                         <thead><tr>
                             <th>Tanggal Kirim</th><th>Job Order</th><th>PO#</th><th>Kode Item</th>
-                            <th>Nama Produk</th><th>Order</th><th>Hasil</th><th>Sisa</th><th>Keterangan</th><th>Tanggal Arsip</th>
+                            <th>Nama Produk</th><th>Order</th><th>Hasil</th><th>Kekurangan</th><th>Keterangan</th><th>Tanggal Arsip</th>
                         </tr></thead>
                         <tbody id="archiveViewerBody"></tbody>
                     </table>
@@ -1254,16 +1265,13 @@
                     const identity = document.createElement("div");
                     identity.className = "active-live-identity";
 
-                    const joLabel = document.createElement("span");
-                    joLabel.className = "active-live-label";
-                    joLabel.textContent = "JO";
                     const joNumber = document.createElement("strong");
                     joNumber.className = "active-live-jo";
                     joNumber.textContent = item.jobOrder || "-";
                     const fgCode = document.createElement("span");
                     fgCode.className = "active-live-fg";
                     fgCode.textContent = item.kodeItem || "-";
-                    identity.append(joLabel, joNumber, fgCode);
+                    identity.append(joNumber, fgCode);
 
                     const status = document.createElement("span");
                     status.className = `active-live-status ${isClosed ? "closed" : "open"}`;
@@ -1279,7 +1287,7 @@
                     [
                         ["ORDER", item.order, ""],
                         ["HASIL", item.hasil, "result"],
-                        ["SISA", remaining, "remaining"]
+                        ["KEKURANGAN", remaining, "remaining"]
                     ].forEach(([label, value, kind]) => {
                         const metric = document.createElement("div");
                         metric.className = "active-live-qty " + kind;
@@ -1465,16 +1473,13 @@
                     const identity = document.createElement('div');
                     identity.className = 'active-live-identity';
 
-                    const joLabel = document.createElement('span');
-                    joLabel.className = 'active-live-label';
-                    joLabel.textContent = 'JO';
                     const joNumber = document.createElement('strong');
                     joNumber.className = 'active-live-jo';
                     joNumber.textContent = item.jobOrder || '-';
                     const fgCode = document.createElement('span');
                     fgCode.className = 'active-live-fg';
                     fgCode.textContent = item.kodeItem || '-';
-                    identity.append(joLabel, joNumber, fgCode);
+                    identity.append(joNumber, fgCode);
 
                     const status = document.createElement('span');
                     status.className = `active-live-status ${isClosed ? 'closed' : 'open'}`;
@@ -1490,7 +1495,7 @@
                     [
                         ['ORDER', item.order, ''],
                         ['HASIL', item.hasil, 'result'],
-                        ['SISA', remaining, 'remaining']
+                        ['KEKURANGAN', remaining, 'remaining']
                     ].forEach(([label, value, kind]) => {
                         const metric = document.createElement('div');
                         metric.className = 'active-live-qty ' + kind;
@@ -1863,8 +1868,10 @@
                     Number(item.hasil || 0).toLocaleString("id-ID"),
                     Number(item.sisa || 0).toLocaleString("id-ID"),
                     item.ket || "-", archivedTime(item)
-                ].forEach(value => {
+                ].forEach((value, index) => {
                     const td = document.createElement("td");
+                    if (index === 6) td.className = "hasil-closed";
+                    if (index === 7) td.className = "kekurangan-closed";
                     td.textContent = String(value);
                     tr.appendChild(td);
                 });
@@ -1909,16 +1916,13 @@
                     heading.className = "archive-jo-heading";
                     const joBlock = document.createElement("div");
                     joBlock.className = "archive-jo-identity";
-                    const joLabel = document.createElement("span");
-                    joLabel.className = "archive-jo-number-label";
-                    joLabel.textContent = "JO";
                     const joNumber = document.createElement("strong");
                     joNumber.className = "archive-jo-number";
                     joNumber.textContent = item.jobOrder || "-";
                     const code = document.createElement("span");
                     code.className = "archive-jo-code";
                     code.textContent = item.kodeItem || "-";
-                    joBlock.append(joLabel, joNumber, code);
+                    joBlock.append(joNumber, code);
 
                     const status = document.createElement("span");
                     status.className = "archive-jo-status" + (isClosed ? "" : " is-open");
@@ -1934,7 +1938,7 @@
                     [
                         ["Order", item.order, ""],
                         ["Hasil", item.hasil, "is-result"],
-                        ["Sisa", item.sisa, ""]
+                        ["Kekurangan", item.sisa, "is-shortage"]
                     ].forEach(([label, value, extraClass]) => {
                         const metric = document.createElement("div");
                         metric.className = "archive-jo-qty " + extraClass;
