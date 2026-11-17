@@ -238,6 +238,10 @@
         .archive-viewer-body { padding: 12px; overflow-y: auto; max-height: 65vh; background: #f8fafc; }
         .archive-viewer-cards { margin-top: 0; }
         .archive-viewer-desktop { display: none; }
+        .archive-viewer-pagination { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid #e2e8f0; background: #fff; }
+        .archive-viewer-pagination button { border: 0; border-radius: 6px; padding: 8px 12px; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
+        .archive-viewer-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+        .archive-viewer-page-info { font-size: 11px; color: #64748b; text-align: center; }
         .archive-sub-card { cursor: default; }
         .archive-sub-card .sub-card-header { align-items: flex-start; gap: 8px; }
         .archive-sub-card .sub-card-header strong { min-width: 0; overflow-wrap: anywhere; }
@@ -375,8 +379,8 @@
                 <button class="modal-close-btn" onclick="tutupArsipViewer()">&times;</button>
             </div>
             <div class="archive-viewer-filters">
-                <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="renderArsipViewer()">
-                <input type="date" id="archiveViewerDate" class="search-box" aria-label="Cari berdasarkan tanggal pengiriman" title="Cari berdasarkan tanggal pengiriman" onchange="renderArsipViewer()">
+                <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="filterArsipViewer()">
+                <input type="date" id="archiveViewerDate" class="search-box" aria-label="Cari berdasarkan tanggal pengiriman" title="Cari berdasarkan tanggal pengiriman" onchange="filterArsipViewer()">
                 <div id="archiveViewerSummary" style="font-size:10px;color:#718093;">Memuat arsip...</div>
             </div>
             <div class="archive-viewer-body">
@@ -390,6 +394,11 @@
                         <tbody id="archiveViewerBody"></tbody>
                     </table>
                 </div>
+            </div>
+            <div id="archiveViewerPagination" class="archive-viewer-pagination">
+                <button id="archiveViewerPrev" type="button" onclick="ubahHalamanArsipViewer(-1)">Sebelumnya</button>
+                <span id="archiveViewerPageInfo" class="archive-viewer-page-info">Halaman 1</span>
+                <button id="archiveViewerNext" type="button" onclick="ubahHalamanArsipViewer(1)">Berikutnya</button>
             </div>
         </div>
     </div>
@@ -407,6 +416,8 @@
 
     <script>
         let database = [];
+        let archiveViewerPage = 1;
+        const ARCHIVE_VIEWER_PAGE_SIZE = 50;
 
         // 1. Logika Generator Device ID Browser dengan Deteksi OS
         function getDeviceId() {
@@ -891,6 +902,7 @@
             const date = document.getElementById("archiveViewerDate");
             if (search) search.value = "";
             if (date) date.value = "";
+            archiveViewerPage = 1;
             renderArsipViewer();
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "flex";
@@ -900,9 +912,18 @@
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "none";
         };
+        window.filterArsipViewer = function() {
+            archiveViewerPage = 1;
+            renderArsipViewer();
+        };
+        window.ubahHalamanArsipViewer = function(delta) {
+            archiveViewerPage = Math.max(1, archiveViewerPage + Number(delta || 0));
+            renderArsipViewer();
+        };
         window.renderArsipViewer = function() {
             const body = document.getElementById("archiveViewerBody");
             const cards = document.getElementById("archiveViewerCards");
+            const pagination = document.getElementById("archiveViewerPagination");
             if (!body || !cards) return;
             const keyword = String(document.getElementById("archiveViewerSearch")?.value || "").trim().toLowerCase();
             const selectedDate = String(document.getElementById("archiveViewerDate")?.value || "").trim();
@@ -916,12 +937,28 @@
                 const millis = value => value?.toDate ? value.toDate().getTime() : (value ? new Date(value).getTime() : 0);
                 return millis(b.archivedAt) - millis(a.archivedAt);
             });
+
+            const total = rows.length;
+            const totalPages = Math.max(1, Math.ceil(total / ARCHIVE_VIEWER_PAGE_SIZE));
+            archiveViewerPage = Math.min(archiveViewerPage, totalPages);
+            const startIndex = total ? (archiveViewerPage - 1) * ARCHIVE_VIEWER_PAGE_SIZE : 0;
+            const visibleRows = rows.slice(startIndex, startIndex + ARCHIVE_VIEWER_PAGE_SIZE);
+            const endIndex = Math.min(startIndex + visibleRows.length, total);
             const summary = document.getElementById("archiveViewerSummary");
-            if (summary) summary.textContent = rows.length.toLocaleString("id-ID") + " arsip ditemukan" +
-                (selectedDate ? " • Tanggal kirim: " + formatHariTanggal(selectedDate).tanggalFormatted : "");
+            if (summary) summary.textContent = total.toLocaleString("id-ID") + " arsip ditemukan" +
+                (selectedDate ? " • Tanggal kirim: " + formatHariTanggal(selectedDate).tanggalFormatted : "") +
+                (total ? " • Menampilkan " + (startIndex + 1).toLocaleString("id-ID") + "–" + endIndex.toLocaleString("id-ID") : "");
+            if (pagination) pagination.style.display = total > 0 ? "flex" : "none";
+            const pageInfo = document.getElementById("archiveViewerPageInfo");
+            const prev = document.getElementById("archiveViewerPrev");
+            const next = document.getElementById("archiveViewerNext");
+            if (pageInfo) pageInfo.textContent = "Halaman " + archiveViewerPage + " dari " + totalPages;
+            if (prev) prev.disabled = archiveViewerPage <= 1;
+            if (next) next.disabled = archiveViewerPage >= totalPages;
+
             body.innerHTML = "";
             cards.innerHTML = "";
-            if (!rows.length) {
+            if (!total) {
                 const message = keyword || selectedDate ? "Arsip tidak ditemukan." : "Belum ada JO CLOSED yang diarsipkan.";
                 const tr = document.createElement("tr"), td = document.createElement("td");
                 td.colSpan = 9; td.style.textAlign = "center"; td.style.padding = "18px";
@@ -934,7 +971,7 @@
             }
 
             const grouped = {};
-            rows.forEach(item => {
+            visibleRows.forEach(item => {
                 const dateKey = item.tanggal || "Tanpa Tanggal";
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(item);
@@ -993,7 +1030,7 @@
                 cards.appendChild(group);
             });
 
-            rows.forEach(item => {
+            visibleRows.forEach(item => {
                 const tr = document.createElement("tr");
                 const archivedAt = item.archivedAt?.toDate
                     ? item.archivedAt.toDate().toLocaleString("id-ID")
