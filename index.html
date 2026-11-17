@@ -595,6 +595,20 @@
         .hasil-closed { color:#27ae60 !important; font-weight:750; }
         .kekurangan-open { color:#d94b40 !important; font-weight:750; }
         .kekurangan-closed { color:#253858 !important; font-weight:750; }
+            /* Final status colors for all active and upcoming-detail JO cards. */
+        .active-live-qty.hasil-open strong { color:#253858 !important; }
+        .active-live-qty.hasil-closed strong { color:#27ae60 !important; }
+        .active-live-qty.kekurangan-open strong { color:#d94b40 !important; }
+        .active-live-qty.kekurangan-closed strong { color:#253858 !important; }
+
+        /* Remove redundant JO prefix; the card begins with JD/JE itself. */
+        .active-live-label,
+        .archive-jo-number-label { display:none !important; }
+        .active-live-jo::before,
+        .archive-jo-number::before { content:none !important; }
+        .archive-jo-qty.is-result strong { color:#27ae60 !important; }
+        .archive-jo-qty.is-shortage strong { color:#253858 !important; }
+
     </style>
 </head>
 <body>
@@ -1286,8 +1300,8 @@
                     qtyGrid.className = "active-live-qty-grid";
                     [
                         ["ORDER", item.order, ""],
-                        ["HASIL", item.hasil, "result"],
-                        ["KEKURANGAN", remaining, "remaining"]
+                        ["HASIL", item.hasil, isClosed ? "hasil-closed" : "hasil-open"],
+                        ["KEKURANGAN", remaining, isClosed ? "kekurangan-closed" : "kekurangan-open"]
                     ].forEach(([label, value, kind]) => {
                         const metric = document.createElement("div");
                         metric.className = "active-live-qty " + kind;
@@ -1494,8 +1508,8 @@
                     quantityGrid.className = 'active-live-qty-grid';
                     [
                         ['ORDER', item.order, ''],
-                        ['HASIL', item.hasil, 'result'],
-                        ['KEKURANGAN', remaining, 'remaining']
+                        ['HASIL', item.hasil, isClosed ? 'hasil-closed' : 'hasil-open'],
+                        ['KEKURANGAN', remaining, isClosed ? 'kekurangan-closed' : 'kekurangan-open']
                     ].forEach(([label, value, kind]) => {
                         const metric = document.createElement('div');
                         metric.className = 'active-live-qty ' + kind;
