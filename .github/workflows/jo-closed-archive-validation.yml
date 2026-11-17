@@ -33,6 +33,13 @@ jobs:
               raise SystemExit("Annual summary must not load when the archive modal first opens.")
           if 'id="archiveViewerDataTabPane"' not in source or 'id="annualRecapTabPane"' not in source:
               raise SystemExit("Both archive tab panes are required.")
+          annual_start = source.index('<section id="annualRecapTabPane"')
+          tabs_start = source.index('<nav class="archive-viewer-tabs"', annual_start)
+          annual_region = source[annual_start:tabs_start]
+          if annual_region.count("<section") != annual_region.count("</section>"):
+              raise SystemExit("Annual recap pane is not closed before archive tabs; Data Arsip would be hidden.")
+          if tabs_start < annual_start:
+              raise SystemExit("Archive tabs must be siblings of the annual pane.")
           print("Data Arsip is the default tab; annual summary is lazy-loaded only on selection.")
           PY
 
