@@ -255,6 +255,38 @@
         .archive-sub-card .sub-card-header { align-items: flex-start; gap: 8px; }
         .archive-sub-card .sub-card-header strong { min-width: 0; overflow-wrap: anywhere; }
         .archive-sub-card .sub-card-grid { grid-template-columns: 1fr 1fr; }
+        .date-group-container.archive-viewer-cards { gap:14px; }
+        .archive-viewer-cards .date-group-box { border-radius:11px; border-color:#d6deea; box-shadow:0 2px 8px rgba(32,55,100,.05); }
+        .archive-viewer-cards .date-group-header { padding:12px 14px; font-size:13px; min-height:42px; }
+        .archive-viewer-cards .date-group-header span:last-child { font-size:11px !important; padding:4px 8px !important; }
+        .archive-viewer-cards .date-group-content { padding:10px; gap:11px; }
+        .archive-jo-card { padding:14px; border-radius:10px; border-left-width:5px; box-shadow:0 2px 7px rgba(15,23,42,.045); }
+        .archive-jo-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; padding-bottom:9px; border-bottom:1px solid #e8edf4; }
+        .archive-jo-number-label { display:block; color:#64748b; font-size:10px; font-weight:800; letter-spacing:.45px; text-transform:uppercase; }
+        .archive-jo-number { display:block; margin-top:3px; color:#203764; font-size:15px; font-weight:800; line-height:1.3; overflow-wrap:anywhere; }
+        .archive-jo-status { flex:0 0 auto; padding:5px 9px; border-radius:20px; background:#e9f8ef; color:#16834b; font-size:10px; font-weight:800; }
+        .archive-jo-status.is-open { background:#fff1f0; color:#c0392b; }
+        .archive-jo-product { margin:0 0 11px; color:#253858; font-size:14px; font-weight:750; line-height:1.4; overflow-wrap:anywhere; }
+        .archive-jo-code { display:block; margin-top:3px; color:#64748b; font-size:11px; font-weight:600; }
+        .archive-jo-qty-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:0 0 11px; }
+        .archive-jo-qty { min-width:0; padding:9px 8px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; }
+        .archive-jo-qty span { display:block; color:#64748b; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.25px; }
+        .archive-jo-qty strong { display:block; margin-top:5px; color:#203764; font-size:14px; font-weight:800; line-height:1.2; overflow-wrap:anywhere; }
+        .archive-jo-qty.is-result strong { color:#16834b; }
+        .archive-jo-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px; padding-top:10px; border-top:1px dashed #dce4ee; }
+        .archive-jo-detail { min-width:0; }
+        .archive-jo-detail.is-wide { grid-column:1 / -1; }
+        .archive-jo-detail span { display:block; margin-bottom:3px; color:#7b8798; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
+        .archive-jo-detail strong { display:block; color:#334155; font-size:11px; font-weight:650; line-height:1.45; white-space:normal; overflow-wrap:anywhere; }
+        .archive-jo-detail.is-note strong { padding:8px 9px; border-radius:7px; background:#f8fafc; font-weight:500; }
+        @media (max-width:380px) {
+            .archive-jo-card { padding:11px; }
+            .archive-jo-qty-grid { gap:5px; }
+            .archive-jo-qty { padding:8px 6px; }
+            .archive-jo-qty strong { font-size:12px; }
+            .archive-jo-product { font-size:13px; }
+        }
+
         .archive-viewer-tabs { display:grid; grid-template-columns:1fr 1fr; gap:7px; padding:4px; margin:0 12px 10px; border:1px solid #dbe3ee; border-radius:10px; background:#f1f5f9; }
         .archive-viewer-tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:0; padding:10px 8px; border:1px solid transparent; border-radius:8px; background:transparent; color:#475569; cursor:pointer; }
         .archive-viewer-tab span { font-size:13px; font-weight:800; }
@@ -1489,38 +1521,74 @@
                 content.className = "date-group-content";
                 dateItems.forEach(item => {
                     const isClosed = Number(item.sisa || 0) <= 0;
-                    const card = document.createElement("div");
-                    card.className = "sub-card archive-sub-card " + (isClosed ? "closed" : "open");
-                    const cardHeader = document.createElement("div");
-                    cardHeader.className = "sub-card-header";
-                    const title = document.createElement("strong");
-                    title.style.cssText = "color:var(--primary);font-size:11px;";
-                    title.textContent = (item.produk || "-") + " (" + (item.kodeItem || "-") + ")";
-                    const status = document.createElement("div");
-                    status.innerHTML = isClosed ? '<span class="status-close">✓ CLOSED</span>' : '<span class="status-open">⚠️ OPEN</span>';
-                    cardHeader.append(title, status);
-                    const grid = document.createElement("div");
-                    grid.className = "sub-card-grid";
-                    const fields = [
-                        ["Job Order", item.jobOrder || "-"], ["PO#", item.poNum || "-"],
-                        ["Order / Hasil", Number(item.order || 0).toLocaleString("id-ID") + " / " + Number(item.hasil || 0).toLocaleString("id-ID")],
-                        ["Sisa", Number(item.sisa || 0).toLocaleString("id-ID")],
-                        ["Keterangan", item.ket || "-"],
-                        ["Tanggal Arsip", item.archivedAt ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-"]
-                    ];
-                    fields.forEach(([label, value]) => {
-                        const cell = document.createElement("div");
-                        cell.className = "sub-item";
+                    const card = document.createElement("article");
+                    card.className = "sub-card archive-sub-card archive-jo-card " + (isClosed ? "closed" : "open");
+
+                    const heading = document.createElement("div");
+                    heading.className = "archive-jo-heading";
+                    const joBlock = document.createElement("div");
+                    const joLabel = document.createElement("span");
+                    joLabel.className = "archive-jo-number-label";
+                    joLabel.textContent = "Job Order";
+                    const joNumber = document.createElement("strong");
+                    joNumber.className = "archive-jo-number";
+                    joNumber.textContent = item.jobOrder || "-";
+                    joBlock.append(joLabel, joNumber);
+
+                    const status = document.createElement("span");
+                    status.className = "archive-jo-status" + (isClosed ? "" : " is-open");
+                    status.textContent = isClosed ? "CLOSED" : "OPEN";
+                    heading.append(joBlock, status);
+
+                    const product = document.createElement("h4");
+                    product.className = "archive-jo-product";
+                    product.textContent = item.produk || "-";
+                    const code = document.createElement("span");
+                    code.className = "archive-jo-code";
+                    code.textContent = "Kode Item: " + (item.kodeItem || "-");
+                    product.appendChild(code);
+
+                    const qtyGrid = document.createElement("div");
+                    qtyGrid.className = "archive-jo-qty-grid";
+                    [
+                        ["Order", item.order, ""],
+                        ["Hasil", item.hasil, "is-result"],
+                        ["Sisa", item.sisa, ""]
+                    ].forEach(([label, value, extraClass]) => {
+                        const metric = document.createElement("div");
+                        metric.className = "archive-jo-qty " + extraClass;
                         const caption = document.createElement("span");
                         caption.textContent = label;
-                        const strong = document.createElement("strong");
-                        strong.textContent = value;
-                        cell.append(caption, strong);
-                        grid.appendChild(cell);
+                        const number = document.createElement("strong");
+                        number.textContent = Number(value || 0).toLocaleString("id-ID");
+                        metric.append(caption, number);
+                        qtyGrid.appendChild(metric);
                     });
-                    card.append(cardHeader, grid);
+
+                    const details = document.createElement("div");
+                    details.className = "archive-jo-details";
+                    const addDetail = (label, value, wide = false, note = false) => {
+                        const cell = document.createElement("div");
+                        cell.className = "archive-jo-detail" +
+                            (wide ? " is-wide" : "") + (note ? " is-note" : "");
+                        const caption = document.createElement("span");
+                        caption.textContent = label;
+                        const content = document.createElement("strong");
+                        content.textContent = String(value || "-");
+                        cell.append(caption, content);
+                        details.appendChild(cell);
+                    };
+                    addDetail("PO Number", item.poNum || "-");
+                    addDetail("Tanggal Kirim", item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-");
+                    addDetail("Keterangan", item.ket || "-", true, true);
+                    addDetail("Tanggal Arsip", item.archivedAt
+                        ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
+                        : "-", true);
+
+                    card.append(heading, product, qtyGrid, details);
                     content.appendChild(card);
                 });
+
                 group.appendChild(content);
                 cards.appendChild(group);
             });
