@@ -255,6 +255,39 @@
         .archive-sub-card .sub-card-header { align-items: flex-start; gap: 8px; }
         .archive-sub-card .sub-card-header strong { min-width: 0; overflow-wrap: anywhere; }
         .archive-sub-card .sub-card-grid { grid-template-columns: 1fr 1fr; }
+        .annual-recap-panel { margin:0; padding:12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+        .annual-recap-header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+        .annual-recap-subtitle { color:#718093; font-size:10px; line-height:1.45; }
+        .annual-recap-refresh { flex:0 0 auto; background:#2563eb; color:white; border:0; border-radius:6px; padding:7px 11px; font-size:11px; }
+        .annual-recap-table-wrap { display:none; width:100%; margin-top:10px; overflow:hidden; border:1px solid #dbe3ee; border-radius:7px; background:white; }
+        .annual-recap-table { width:100%; margin:0; table-layout:fixed; background:white; }
+        .annual-recap-table th, .annual-recap-table td { padding:8px 6px; font-size:11px; white-space:normal; overflow-wrap:anywhere; word-break:normal; }
+        .annual-recap-cards { display:grid; grid-template-columns:1fr; gap:8px; margin-top:10px; }
+        .annual-recap-card { min-width:0; background:white; border:1px solid #dbe3ee; border-left:4px solid var(--primary); border-radius:8px; padding:10px; }
+        .annual-recap-card.is-final { border-left-color:var(--success); }
+        .annual-recap-card.is-waiting { border-left-color:var(--warning); }
+        .annual-recap-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding-bottom:7px; border-bottom:1px solid #eef2f7; }
+        .annual-recap-card-head strong { color:var(--primary); font-size:15px; }
+        .annual-recap-card-status { max-width:70%; text-align:right; color:#475569; font-size:10px; font-weight:700; overflow-wrap:anywhere; }
+        .annual-recap-card-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:8px; }
+        .annual-recap-metric { min-width:0; padding:7px 8px; border-radius:6px; background:#f8fafc; }
+        .annual-recap-metric span { display:block; color:#64748b; font-size:9px; font-weight:700; text-transform:uppercase; }
+        .annual-recap-metric strong { display:block; margin-top:3px; color:var(--primary); font-size:14px; overflow-wrap:anywhere; }
+        .annual-recap-empty { padding:13px; border:1px solid #dbe3ee; border-radius:8px; background:white; text-align:center; color:#718093; font-size:11px; }
+        .annual-recap-message { margin-top:8px; color:#718093; font-size:10px; line-height:1.45; overflow-wrap:anywhere; }
+        @media (min-width:768px) {
+            .annual-recap-table-wrap { display:block; }
+            .annual-recap-cards { display:none; }
+            .annual-recap-panel { padding:14px 16px; }
+            .annual-recap-table th, .annual-recap-table td { padding:9px 7px; }
+        }
+        @media (max-width:767px) {
+            .annual-recap-panel { padding:10px; }
+            .annual-recap-refresh { width:100%; }
+            .annual-recap-card-grid { gap:6px; }
+            .annual-recap-metric strong { font-size:13px; }
+        }
+
         @media (min-width: 768px) {
             body { padding: 20px; }
             .container { padding: 20px; }
@@ -347,27 +380,6 @@
             </div>
         </div>
 
-        <div class="summary-box" id="annualRecapPanel">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div>
-                    <div class="section-title" style="margin-bottom:3px;">REKAP TAHUNAN PENGIRIMAN</div>
-                    <div style="font-size:10px;color:#718093;">Tahun dihitung dari tanggal pengiriman. JO tahun sebelumnya tetap diperbarui sampai seluruhnya CLOSED dan H+1 selesai.</div>
-                </div>
-                <button type="button" onclick="loadAnnualShipmentRecap()" style="background:#2563eb;color:white;padding:7px 11px;border-radius:6px;font-size:11px;">Muat Ulang</button>
-            </div>
-            <div class="table-responsive" style="margin-top:10px;">
-                <table class="desktop-table" style="min-width:620px;background:white;">
-                    <thead><tr>
-                        <th>Tahun Pengiriman</th><th>Total JO</th><th>JO Closed</th><th>JO Open</th><th>Total Hasil</th><th>Status Tahun</th>
-                    </tr></thead>
-                    <tbody id="annualRecapTableBody">
-                        <tr><td colspan="6" style="text-align:center;color:#718093;">Menunggu verifikasi dan rekap data tahunan...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div id="annualRecapMessage" style="font-size:10px;color:#718093;margin-top:7px;">Rekap tahunan akan dimuat setelah token Viewer tervalidasi.</div>
-        </div>
-
         <div class="summary-box">
             <div class="section-title">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
@@ -411,6 +423,30 @@
                 <span>Arsip JO CLOSED</span>
                 <button class="modal-close-btn" onclick="tutupArsipViewer()">&times;</button>
             </div>
+            <section class="annual-recap-panel" id="annualRecapPanel">
+                <div class="annual-recap-header">
+                    <div>
+                        <div class="section-title" style="margin-bottom:3px;">REKAP TAHUNAN PENGIRIMAN</div>
+                        <div class="annual-recap-subtitle">Tahun dihitung dari tanggal pengiriman. JO tahun sebelumnya tetap diperbarui sampai seluruhnya CLOSED dan H+1 selesai.</div>
+                    </div>
+                    <button type="button" class="annual-recap-refresh" onclick="loadAnnualShipmentRecap()">Muat Ulang</button>
+                </div>
+                <div class="annual-recap-table-wrap">
+                    <table class="desktop-table annual-recap-table">
+                        <colgroup><col style="width:12%"><col style="width:14%"><col style="width:14%"><col style="width:12%"><col style="width:16%"><col style="width:32%"></colgroup>
+                        <thead><tr>
+                            <th>Tahun</th><th>Total JO</th><th>JO Closed</th><th>JO Open</th><th>Total Hasil</th><th>Status Tahun</th>
+                        </tr></thead>
+                        <tbody id="annualRecapTableBody">
+                            <tr><td colspan="6" style="text-align:center;color:#718093;">Menunggu verifikasi dan rekap data tahunan...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="annualRecapCards" class="annual-recap-cards" aria-live="polite">
+                    <div class="annual-recap-empty">Menunggu rekap tahunan...</div>
+                </div>
+                <div id="annualRecapMessage" class="annual-recap-message">Rekap tahunan akan dimuat saat Arsip Closed dibuka.</div>
+            </section>
             <div class="archive-viewer-filters">
                 <input type="text" id="archiveViewerSearch" class="search-box" placeholder="Cari JO, PO#, kode item, atau nama produk..." oninput="filterArsipViewer()">
                 <div class="archive-viewer-date-range">
@@ -685,7 +721,6 @@
 
         async function initRealtimeSync() {
             const { collection, onSnapshot, query, orderBy, where, getCountFromServer } = window.fbModules;
-            loadAnnualShipmentRecap();
             const shipmentCollection = collection(window.db, "production_data_v2");
             let activeOnlyReady = false;
 
@@ -762,6 +797,7 @@
         }
         window.loadAnnualShipmentRecap = async function() {
             const body = document.getElementById("annualRecapTableBody");
+            const cards = document.getElementById("annualRecapCards");
             const message = document.getElementById("annualRecapMessage");
             if (message) message.textContent = "Memeriksa data Firestore dan status finalisasi setiap tahun...";
             const token = localStorage.getItem("assembly_access_token") || "";
@@ -783,33 +819,77 @@
                     throw new Error(result.error || "Rekap tahunan gagal dimuat.");
                 }
                 const years = Array.isArray(result.years) ? result.years : [];
-                if (body) {
-                    body.innerHTML = "";
-                    if (!years.length) {
-                        body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718093;">Belum ada data pengiriman bertanggal.</td></tr>';
-                    } else {
-                        years.forEach(item => {
+                if (body) body.innerHTML = "";
+                if (cards) cards.innerHTML = "";
+                if (!years.length) {
+                    if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718093;">Belum ada data pengiriman bertanggal.</td></tr>';
+                    if (cards) {
+                        const empty = document.createElement("div");
+                        empty.className = "annual-recap-empty";
+                        empty.textContent = "Belum ada data pengiriman bertanggal.";
+                        cards.appendChild(empty);
+                    }
+                } else {
+                    years.forEach(item => {
+                        const values = [
+                            item.year,
+                            formatAnnualRecapNumber(item.totalJO),
+                            formatAnnualRecapNumber(item.closedJO),
+                            formatAnnualRecapNumber(item.openJO),
+                            formatAnnualRecapNumber(item.totalHasil),
+                            annualRecapStatus(item.status)
+                        ];
+                        if (body) {
                             const tr = document.createElement("tr");
-                            const values = [
-                                item.year,
-                                formatAnnualRecapNumber(item.totalJO),
-                                formatAnnualRecapNumber(item.closedJO),
-                                formatAnnualRecapNumber(item.openJO),
-                                formatAnnualRecapNumber(item.totalHasil),
-                                annualRecapStatus(item.status)
-                            ];
                             values.forEach(value => {
                                 const td = document.createElement("td");
                                 td.textContent = String(value);
                                 tr.appendChild(td);
                             });
                             body.appendChild(tr);
-                        });
-                    }
+                        }
+                        if (cards) {
+                            const card = document.createElement("article");
+                            card.className = "annual-recap-card " +
+                                (item.status === "FINAL" || item.status === "BACKED_UP" ? "is-final" :
+                                 item.status === "WAITING_FINALIZATION" ? "is-waiting" : "");
+                            const head = document.createElement("div");
+                            head.className = "annual-recap-card-head";
+                            const year = document.createElement("strong");
+                            year.textContent = String(item.year);
+                            const status = document.createElement("span");
+                            status.className = "annual-recap-card-status";
+                            status.textContent = annualRecapStatus(item.status);
+                            head.append(year, status);
+                            const grid = document.createElement("div");
+                            grid.className = "annual-recap-card-grid";
+                            [["Total JO", item.totalJO], ["JO Closed", item.closedJO], ["JO Open", item.openJO], ["Total Hasil", item.totalHasil]]
+                                .forEach(([label, value]) => {
+                                    const metric = document.createElement("div");
+                                    metric.className = "annual-recap-metric";
+                                    const caption = document.createElement("span");
+                                    caption.textContent = label;
+                                    const number = document.createElement("strong");
+                                    number.textContent = formatAnnualRecapNumber(value);
+                                    metric.append(caption, number);
+                                    grid.appendChild(metric);
+                                });
+                            card.append(head, grid);
+                            cards.appendChild(card);
+                        }
+                    });
                 }
-                if (message) message.textContent = "Rekap berhasil diperbarui. Status FINAL hanya diberikan bila seluruh baris tahun tersebut CLOSED, telah masuk arsip Supabase, dan melewati H+1.";
+                if (message) message.textContent = "Rekap berhasil diperbarui. Status FINAL hanya diberikan bila semua JO tahun tersebut CLOSED, telah masuk arsip Supabase, dan melewati H+1.";
             } catch (error) {
                 if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#b91c1c;">Rekap tahunan belum dapat dimuat.</td></tr>';
+                if (cards) {
+                    cards.innerHTML = "";
+                    const errorCard = document.createElement("div");
+                    errorCard.className = "annual-recap-empty";
+                    errorCard.style.color = "#b91c1c";
+                    errorCard.textContent = "Rekap tahunan belum dapat dimuat.";
+                    cards.appendChild(errorCard);
+                }
                 if (message) message.textContent = "Gagal memuat rekap tahunan: " + (error.message || "Kesalahan koneksi.");
                 console.error("Annual shipment recap:", error);
             }
@@ -1123,7 +1203,7 @@
             archiveViewerMessage = "";
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "flex";
-            await Promise.all([loadArsipViewerPage(1), loadArsipViewerSummary()]);
+            await Promise.all([loadArsipViewerPage(1), loadArsipViewerSummary(), loadAnnualShipmentRecap()]);
         };
 
         window.tutupArsipViewer = function(event) {
