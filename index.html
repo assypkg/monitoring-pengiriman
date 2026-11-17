@@ -418,6 +418,14 @@
         let database = [];
         let archiveViewerPage = 1;
         const ARCHIVE_VIEWER_PAGE_SIZE = 50;
+        const ARCHIVE_SUPABASE_URL = "https://wcsjjdzxnwhzqkqninky.supabase.co";
+        const ARCHIVE_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_UadEwYUBc9Whu3m7VKrF6g_lAjS_Y4U";
+        let archiveViewerRows = [];
+        let archiveViewerCursors = [0];
+        let archiveViewerHasMore = false;
+        let archiveViewerLoading = false;
+        let archiveViewerMessage = "";
+        let archiveViewerSearchTimer = null;
 
         // 1. Logika Generator Device ID Browser dengan Deteksi OS
         function getDeviceId() {
@@ -897,69 +905,139 @@
         }
 
         // --- Arsip JO CLOSED: tampilan read-only Viewer ---
-        window.bukaArsipViewer = function() {
+        window.bukaArsipViewer = async function() {
             const search = document.getElementById("archiveViewerSearch");
             const date = document.getElementById("archiveViewerDate");
             if (search) search.value = "";
             if (date) date.value = "";
             archiveViewerPage = 1;
-            renderArsipViewer();
+            archiveViewerCursors = [0];
+            archiveViewerRows = [];
+            archiveViewerHasMore = false;
+            archiveViewerMessage = "";
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "flex";
+            await loadArsipViewerPage(1);
         };
+
         window.tutupArsipViewer = function(event) {
             if (event && event.target && event.target.id !== "archiveViewerModal") return;
             const modal = document.getElementById("archiveViewerModal");
             if (modal) modal.style.display = "none";
         };
+
         window.filterArsipViewer = function() {
             archiveViewerPage = 1;
-            renderArsipViewer();
+            archiveViewerCursors = [0];
+            archiveViewerRows = [];
+            archiveViewerHasMore = false;
+            archiveViewerMessage = "";
+            if (archiveViewerSearchTimer) clearTimeout(archiveViewerSearchTimer);
+            archiveViewerSearchTimer = setTimeout(() => loadArsipViewerPage(1), 300);
         };
-        window.ubahHalamanArsipViewer = function(delta) {
-            archiveViewerPage = Math.max(1, archiveViewerPage + Number(delta || 0));
-            renderArsipViewer();
+
+        window.ubahHalamanArsipViewer = async function(delta) {
+            const targetPage = archiveViewerPage + Number(delta || 0);
+            if (targetPage < 1) return;
+            if (targetPage > archiveViewerPage && !archiveViewerHasMore) return;
+            if (typeof archiveViewerCursors[targetPage - 1] !== "number") return;
+            await loadArsipViewerPage(targetPage);
         };
+
+        async function loadArsipViewerPage(page) {
+            if (archiveViewerLoading) return;
+            const token = localStorage.getItem("assembly_access_token") || "";
+            const deviceId = getDeviceId();
+            if (!token) {
+                archiveViewerRows = [];
+                archiveViewerMessage = "Sesi Viewer tidak ditemukan. Silakan login ulang.";
+                renderArsipViewer();
+                return;
+            }
+
+            const search = String(document.getElementById("archiveViewerSearch")?.value || "").trim();
+            const deliveryDate = String(document.getElementById("archiveViewerDate")?.value || "").trim();
+            const cursor = Number(archiveViewerCursors[page - 1] || 0);
+            archiveViewerLoading = true;
+            archiveViewerMessage = "Mengambil arsip dari Supabase...";
+            const prev = document.getElementById("archiveViewerPrev");
+            const next = document.getElementById("archiveViewerNext");
+            if (prev) prev.disabled = true;
+            if (next) next.disabled = true;
+            renderArsipViewer();
+
+            try {
+                const response = await fetch(ARCHIVE_SUPABASE_URL + "/functions/v1/viewer-archive-list", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": ARCHIVE_SUPABASE_PUBLISHABLE_KEY
+                    },
+                    body: JSON.stringify({
+                        token,
+                        deviceId,
+                        cursor,
+                        limit: ARCHIVE_VIEWER_PAGE_SIZE,
+                        search,
+                        deliveryDate
+                    })
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok || result.success !== true) {
+                    throw new Error(result.error || "Arsip Supabase gagal dimuat.");
+                }
+
+                archiveViewerRows = Array.isArray(result.records) ? result.records : [];
+                archiveViewerHasMore = result.hasMore === true &&
+                    Number.isSafeInteger(Number(result.nextCursor));
+                archiveViewerPage = page;
+                archiveViewerCursors.length = page;
+                if (archiveViewerHasMore) archiveViewerCursors[page] = Number(result.nextCursor);
+                archiveViewerMessage = archiveViewerRows.length
+                    ? archiveViewerRows.length.toLocaleString("id-ID") + " JO dimuat dari Supabase • " +
+                      Number(result.scanned || 0).toLocaleString("id-ID") + " file diperiksa"
+                    : (archiveViewerHasMore
+                        ? "Belum ada hasil pada bagian ini. Tekan Berikutnya untuk melanjutkan pencarian."
+                        : (search || deliveryDate ? "Arsip tidak ditemukan sesuai filter." : "Belum ada JO CLOSED yang diarsipkan."));
+            } catch (error) {
+                archiveViewerRows = [];
+                archiveViewerHasMore = false;
+                archiveViewerMessage = "Gagal memuat arsip Supabase: " + (error.message || "Kesalahan koneksi.");
+                console.error("Gagal memuat arsip Summary dari Supabase:", error);
+            } finally {
+                archiveViewerLoading = false;
+                renderArsipViewer();
+            }
+        }
+
         window.renderArsipViewer = function() {
             const body = document.getElementById("archiveViewerBody");
             const cards = document.getElementById("archiveViewerCards");
             const pagination = document.getElementById("archiveViewerPagination");
             if (!body || !cards) return;
-            const keyword = String(document.getElementById("archiveViewerSearch")?.value || "").trim().toLowerCase();
-            const selectedDate = String(document.getElementById("archiveViewerDate")?.value || "").trim();
-            const rows = database.filter(item => item && item.isArchived === true).filter(item => {
-                const text = [item.jobOrder, item.poNum, item.kodeItem, item.produk, item.tanggal]
-                    .map(value => String(value || "").toLowerCase()).join(" ");
-                return text.includes(keyword) && (!selectedDate || String(item.tanggal || "") === selectedDate);
-            }).sort((a, b) => {
+            const rows = archiveViewerRows.slice().sort((a, b) => {
                 const dateCompare = String(b.tanggal || "").localeCompare(String(a.tanggal || ""));
                 if (dateCompare) return dateCompare;
-                const millis = value => value?.toDate ? value.toDate().getTime() : (value ? new Date(value).getTime() : 0);
-                return millis(b.archivedAt) - millis(a.archivedAt);
+                return String(b.archivedAt || "").localeCompare(String(a.archivedAt || ""));
             });
-
-            const total = rows.length;
-            const totalPages = Math.max(1, Math.ceil(total / ARCHIVE_VIEWER_PAGE_SIZE));
-            archiveViewerPage = Math.min(archiveViewerPage, totalPages);
-            const startIndex = total ? (archiveViewerPage - 1) * ARCHIVE_VIEWER_PAGE_SIZE : 0;
-            const visibleRows = rows.slice(startIndex, startIndex + ARCHIVE_VIEWER_PAGE_SIZE);
-            const endIndex = Math.min(startIndex + visibleRows.length, total);
             const summary = document.getElementById("archiveViewerSummary");
-            if (summary) summary.textContent = total.toLocaleString("id-ID") + " arsip ditemukan" +
-                (selectedDate ? " • Tanggal kirim: " + formatHariTanggal(selectedDate).tanggalFormatted : "") +
-                (total ? " • Menampilkan " + (startIndex + 1).toLocaleString("id-ID") + "–" + endIndex.toLocaleString("id-ID") : "");
-            if (pagination) pagination.style.display = totalPages > 1 ? "flex" : "none";
+            if (summary) {
+                const busyText = archiveViewerLoading ? " • Memuat..." : "";
+                summary.textContent = archiveViewerMessage + busyText;
+            }
+            if (pagination) pagination.style.display =
+                (archiveViewerPage > 1 || archiveViewerHasMore || archiveViewerLoading) ? "flex" : "none";
             const pageInfo = document.getElementById("archiveViewerPageInfo");
             const prev = document.getElementById("archiveViewerPrev");
             const next = document.getElementById("archiveViewerNext");
-            if (pageInfo) pageInfo.textContent = "Halaman " + archiveViewerPage + " dari " + totalPages;
-            if (prev) prev.disabled = archiveViewerPage <= 1;
-            if (next) next.disabled = archiveViewerPage >= totalPages;
+            if (pageInfo) pageInfo.textContent = "Halaman " + archiveViewerPage + " • Maks. 50 JO";
+            if (prev) prev.disabled = archiveViewerLoading || archiveViewerPage <= 1;
+            if (next) next.disabled = archiveViewerLoading || !archiveViewerHasMore;
 
             body.innerHTML = "";
             cards.innerHTML = "";
-            if (!total) {
-                const message = keyword || selectedDate ? "Arsip tidak ditemukan." : "Belum ada JO CLOSED yang diarsipkan.";
+            if (!rows.length) {
+                const message = archiveViewerMessage || "Belum ada JO CLOSED yang diarsipkan.";
                 const tr = document.createElement("tr"), td = document.createElement("td");
                 td.colSpan = 9; td.style.textAlign = "center"; td.style.padding = "18px";
                 td.style.color = "#718093"; td.textContent = message;
@@ -971,7 +1049,7 @@
             }
 
             const grouped = {};
-            visibleRows.forEach(item => {
+            rows.forEach(item => {
                 const dateKey = item.tanggal || "Tanpa Tanggal";
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(item);
@@ -988,8 +1066,7 @@
                 dateLabel.textContent = "📅 " + (dateInfo ? dateInfo.hari.toUpperCase() + ", " + dateInfo.tanggalFormatted : dateKey);
                 const count = document.createElement("span");
                 count.style.cssText = "font-size:10px;background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;";
-                const countOnDate = rows.filter(row => String(row.tanggal || "Tanpa Tanggal") === dateKey).length;
-                count.textContent = countOnDate + " Job Order";
+                count.textContent = dateItems.length + " Job Order";
                 header.append(dateLabel, count);
                 group.appendChild(header);
                 const content = document.createElement("div");
@@ -1012,7 +1089,7 @@
                         ["Job Order", item.jobOrder || "-"], ["PO#", item.poNum || "-"],
                         ["Order / Hasil", Number(item.order || 0).toLocaleString("id-ID") + " / " + Number(item.hasil || 0).toLocaleString("id-ID")],
                         ["Sisa", Number(item.sisa || 0).toLocaleString("id-ID")],
-                        ["Tanggal Arsip", item.archivedAt?.toDate ? item.archivedAt.toDate().toLocaleString("id-ID") : (item.archivedAt ? String(item.archivedAt) : "-")]
+                        ["Tanggal Arsip", item.archivedAt ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-"]
                     ];
                     fields.forEach(([label, value]) => {
                         const cell = document.createElement("div");
@@ -1031,11 +1108,11 @@
                 cards.appendChild(group);
             });
 
-            visibleRows.forEach(item => {
+            rows.forEach(item => {
                 const tr = document.createElement("tr");
-                const archivedAt = item.archivedAt?.toDate
-                    ? item.archivedAt.toDate().toLocaleString("id-ID")
-                    : (item.archivedAt ? String(item.archivedAt) : "-");
+                const archivedAt = item.archivedAt
+                    ? new Date(item.archivedAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
+                    : "-";
                 [
                     item.tanggal ? formatHariTanggal(item.tanggal).tanggalFormatted : "-",
                     item.jobOrder || "-", item.poNum || "-", item.kodeItem || "-", item.produk || "-",
