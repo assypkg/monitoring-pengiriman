@@ -108,6 +108,10 @@ jobs:
               'id="archiveViewerAnnualTabBtn"',
               "window.pilihTabArsipViewer",
               "window.loadAnnualShipmentRecap",
+              "archive-jo-qty-grid",
+              "archive-jo-number",
+              "archive-jo-details",
+              "date-group-content",
               '/functions/v1/annual-shipment-archive',
               'action: "summary"',
           ]
