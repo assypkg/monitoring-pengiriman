@@ -141,6 +141,8 @@ jobs:
               'id="archiveViewerAnnualTabBtn"',
               "window.pilihTabArsipViewer",
               "window.loadAnnualShipmentRecap",
+              "Arsip JO CLOSED mulai 10 November 2026",
+              "annual-coverage-note",
               "archive-jo-qty-grid",
               "archive-jo-number",
               "archive-date-group-header",
