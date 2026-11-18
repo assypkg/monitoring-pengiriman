@@ -609,6 +609,11 @@
         .archive-jo-qty.is-result strong { color:#27ae60 !important; }
         .archive-jo-qty.is-shortage strong { color:#253858 !important; }
 
+            .annual-coverage-note { display:block; margin-top:4px; color:#8a5a12; font-size:10px; line-height:1.35; font-weight:650; overflow-wrap:anywhere; }
+        .annual-recap-table td:first-child .annual-coverage-note { max-width:190px; }
+        .annual-recap-card .annual-coverage-note { padding:5px 7px; border-radius:5px; background:#fff7e6; }
+        @media (max-width:767px) { .annual-coverage-note { font-size:10px; } }
+
     </style>
 </head>
 <body>
@@ -1140,9 +1145,18 @@
                         ];
                         if (body) {
                             const tr = document.createElement("tr");
-                            values.forEach(value => {
+                            values.forEach((value, index) => {
                                 const td = document.createElement("td");
-                                td.textContent = String(value);
+                                if (index === 0 && String(item.year) === "2026") {
+                                    const year = document.createElement("strong");
+                                    year.textContent = "2026";
+                                    const note = document.createElement("small");
+                                    note.className = "annual-coverage-note";
+                                    note.textContent = "Arsip JO CLOSED mulai 10 November 2026";
+                                    td.append(year, note);
+                                } else {
+                                    td.textContent = String(value);
+                                }
                                 tr.appendChild(td);
                             });
                             body.appendChild(tr);
@@ -1173,7 +1187,14 @@
                                     metric.append(caption, number);
                                     grid.appendChild(metric);
                                 });
-                            card.append(head, grid);
+                            if (String(item.year) === "2026") {
+                                const coverage = document.createElement("div");
+                                coverage.className = "annual-coverage-note";
+                                coverage.textContent = "Arsip JO CLOSED mulai 10 November 2026";
+                                card.append(head, coverage, grid);
+                            } else {
+                                card.append(head, grid);
+                            }
                             cards.appendChild(card);
                         }
                     });
