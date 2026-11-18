@@ -614,6 +614,12 @@
         .annual-recap-card .annual-coverage-note { padding:5px 7px; border-radius:5px; background:#fff7e6; }
         @media (max-width:767px) { .annual-coverage-note { font-size:10px; } }
 
+            .annual-recap-mode { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:10px 0 8px; padding:4px; border:1px solid #dbe3ee; border-radius:9px; background:#f1f5f9; }
+        .annual-recap-mode-btn { min-height:38px; padding:8px 10px; border:1px solid transparent; border-radius:7px; background:transparent; color:#475569; font-size:12px; font-weight:750; cursor:pointer; }
+        .annual-recap-mode-btn.is-active { background:#203764; color:#fff; }
+        .annual-recap-grouping-info { margin:0 0 9px; padding:8px 10px; border-left:3px solid #2563eb; border-radius:5px; background:#eff6ff; color:#334155; font-size:11px; line-height:1.4; }
+        @media (max-width:767px) { .annual-recap-mode { grid-template-columns:1fr; } .annual-recap-mode-btn { min-height:42px; } }
+
     </style>
 </head>
 <body>
@@ -728,11 +734,16 @@
                     </div>
                     <button type="button" class="annual-recap-refresh" onclick="loadAnnualShipmentRecap()">Muat Ulang</button>
                 </div>
+                <div class="annual-recap-mode" role="group" aria-label="Dasar pengelompokan rekap tahunan">
+                    <button type="button" id="annualRecapModeDateBtn" class="annual-recap-mode-btn is-active" aria-pressed="true" onclick="pilihModeRekapViewer('tanggal')">Berdasarkan Tanggal Pengiriman</button>
+                    <button type="button" id="annualRecapModeJOBtn" class="annual-recap-mode-btn" aria-pressed="false" onclick="pilihModeRekapViewer('jo')">Berdasarkan Nomor JO</button>
+                </div>
+                <div id="annualRecapGroupingInfo" class="annual-recap-grouping-info">Backup dan finalisasi menggunakan tahun tanggal pengiriman.</div>
                 <div class="annual-recap-table-wrap">
                     <table class="desktop-table annual-recap-table">
                         <colgroup><col style="width:12%"><col style="width:14%"><col style="width:14%"><col style="width:12%"><col style="width:16%"><col style="width:32%"></colgroup>
                         <thead><tr>
-                            <th>Tahun</th><th>Total JO</th><th>JO Closed</th><th>JO Open</th><th>Total Hasil</th><th>Status Tahun</th>
+                            <th>Tahun</th><th>Total JO</th><th>JO Closed</th><th>JO Open</th><th>Total Hasil</th><th id="annualRecapStatusHeading">Status Tahun</th>
                         </tr></thead>
                         <tbody id="annualRecapTableBody">
                             <tr><td colspan="6" style="text-align:center;color:#718093;">Menunggu verifikasi dan rekap data tahunan...</td></tr>
@@ -1087,6 +1098,37 @@
 
 
         // Rekap tahunan read-only. Sumber tahun adalah tanggal pengiriman.
+        let annualRecapGroupingMode = "tanggal";
+        let annualRecapYearsByDeliveryDate = [];
+        let annualRecapYearsByJO = [];
+        let annualRecapUnclassifiedJOCount = 0;
+
+        window.pilihModeRekapViewer = function(mode) {
+            annualRecapGroupingMode = mode === "jo" ? "jo" : "tanggal";
+            const isJO = annualRecapGroupingMode === "jo";
+            const dateButton = document.getElementById("annualRecapModeDateBtn");
+            const joButton = document.getElementById("annualRecapModeJOBtn");
+            const info = document.getElementById("annualRecapGroupingInfo");
+            const statusHeading = document.getElementById("annualRecapStatusHeading");
+            if (dateButton) {
+                dateButton.classList.toggle("is-active", !isJO);
+                dateButton.setAttribute("aria-pressed", String(!isJO));
+            }
+            if (joButton) {
+                joButton.classList.toggle("is-active", isJO);
+                joButton.setAttribute("aria-pressed", String(isJO));
+            }
+            if (statusHeading) statusHeading.textContent = isJO ? "Status JO" : "Status Tahun";
+            if (info) {
+                info.textContent = isJO
+                    ? "Tahun diambil dari 2 digit pada nomor JO, misalnya JE26-0655 masuk 2026. JO yang format tahunnya tidak terbaca: " +
+                      annualRecapUnclassifiedJOCount.toLocaleString("id-ID") +
+                      ". Ini kategori laporan; backup dan penghapusan tetap berdasarkan tanggal pengiriman."
+                    : "Tahun diambil dari tanggal pengiriman. Kategori ini menjadi dasar backup JSON, verifikasi, finalisasi H+1, dan penghapusan cloud.";
+            }
+            renderAnnualShipmentRecapRows();
+        };
+
         function formatAnnualRecapNumber(value) {
             return Number(value || 0).toLocaleString("id-ID");
         }
@@ -1094,11 +1136,101 @@
             return ({
                 FINAL: "FINAL",
                 BACKED_UP: "BACKUP TERVERIFIKASI • CLOUD DIBERSIHKAN",
+                HAS_OPEN: "MASIH ADA JO OPEN",
+                ALL_CLOSED: "SEMUA JO CLOSED",
                 WAITING_FINALIZATION: "MENUNGGU FINALISASI",
                 RUNNING: "BERJALAN",
                 UPCOMING: "BELUM DIMULAI"
             })[status] || status || "-";
         }
+        function renderAnnualShipmentRecapRows() {
+            const body = document.getElementById("annualRecapTableBody");
+            const cards = document.getElementById("annualRecapCards");
+            const message = document.getElementById("annualRecapMessage");
+            if (!body || !cards) return;
+            body.innerHTML = "";
+            cards.innerHTML = "";
+            const years = annualRecapGroupingMode === "jo"
+                ? annualRecapYearsByJO
+                : annualRecapYearsByDeliveryDate;
+            if (!years.length) {
+                const label = annualRecapGroupingMode === "jo"
+                    ? "Belum ada nomor JO dengan format tahun yang dapat dibaca."
+                    : "Belum ada data pengiriman bertanggal.";
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718093;"></td></tr>';
+                body.querySelector("td").textContent = label;
+                const empty = document.createElement("div");
+                empty.className = "annual-recap-empty";
+                empty.textContent = label;
+                cards.appendChild(empty);
+                return;
+            }
+
+            years.forEach(item => {
+                const values = [
+                    item.year,
+                    formatAnnualRecapNumber(item.totalJO),
+                    formatAnnualRecapNumber(item.closedJO),
+                    formatAnnualRecapNumber(item.openJO),
+                    formatAnnualRecapNumber(item.totalHasil),
+                    annualRecapStatus(item.status)
+                ];
+                const tr = document.createElement("tr");
+                values.forEach((value, index) => {
+                    const td = document.createElement("td");
+                    if (annualRecapGroupingMode === "tanggal" && index === 0 && String(item.year) === "2026") {
+                        const year = document.createElement("strong");
+                        year.textContent = "2026";
+                        const note = document.createElement("small");
+                        note.className = "annual-coverage-note";
+                        note.textContent = "Arsip JO CLOSED mulai 10 November 2026";
+                        td.append(year, note);
+                    } else {
+                        td.textContent = String(value);
+                    }
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+
+                const card = document.createElement("article");
+                card.className = "annual-recap-card " +
+                    (item.status === "FINAL" || item.status === "BACKED_UP" ? "is-final" :
+                     item.status === "WAITING_FINALIZATION" ? "is-waiting" : "");
+                const head = document.createElement("div");
+                head.className = "annual-recap-card-head";
+                const year = document.createElement("strong");
+                year.textContent = String(item.year);
+                const status = document.createElement("span");
+                status.className = "annual-recap-card-status";
+                status.textContent = annualRecapStatus(item.status);
+                head.append(year, status);
+
+                const grid = document.createElement("div");
+                grid.className = "annual-recap-card-grid";
+                [["Total JO", item.totalJO], ["JO Closed", item.closedJO], ["JO Open", item.openJO], ["Total Hasil", item.totalHasil]]
+                    .forEach(([label, value]) => {
+                        const metric = document.createElement("div");
+                        metric.className = "annual-recap-metric";
+                        const caption = document.createElement("span");
+                        caption.textContent = label;
+                        const number = document.createElement("strong");
+                        number.textContent = formatAnnualRecapNumber(value);
+                        metric.append(caption, number);
+                        grid.appendChild(metric);
+                    });
+
+                if (annualRecapGroupingMode === "tanggal" && String(item.year) === "2026") {
+                    const coverage = document.createElement("div");
+                    coverage.className = "annual-coverage-note";
+                    coverage.textContent = "Arsip JO CLOSED mulai 10 November 2026";
+                    card.append(head, coverage, grid);
+                } else {
+                    card.append(head, grid);
+                }
+                cards.appendChild(card);
+            });
+        }
+
         window.loadAnnualShipmentRecap = async function() {
             const body = document.getElementById("annualRecapTableBody");
             const cards = document.getElementById("annualRecapCards");
@@ -1122,84 +1254,16 @@
                 if (!response.ok || result.success !== true) {
                     throw new Error(result.error || "Rekap tahunan gagal dimuat.");
                 }
-                const years = Array.isArray(result.years) ? result.years : [];
+                annualRecapYearsByDeliveryDate = Array.isArray(result.yearsByDeliveryDate)
+                    ? result.yearsByDeliveryDate
+                    : (Array.isArray(result.years) ? result.years : []);
+                annualRecapYearsByJO = Array.isArray(result.yearsByJO) ? result.yearsByJO : [];
+                annualRecapUnclassifiedJOCount = Number(result.unclassifiedJOCount || 0);
+                pilihModeRekapViewer(annualRecapGroupingMode);
+                if (message) message.textContent = "Rekap tahunan berhasil dimuat. Pilih kategori berdasarkan nomor JO atau tanggal pengiriman.";
                 if (body) body.innerHTML = "";
                 if (cards) cards.innerHTML = "";
-                if (!years.length) {
-                    if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718093;">Belum ada data pengiriman bertanggal.</td></tr>';
-                    if (cards) {
-                        const empty = document.createElement("div");
-                        empty.className = "annual-recap-empty";
-                        empty.textContent = "Belum ada data pengiriman bertanggal.";
-                        cards.appendChild(empty);
-                    }
-                } else {
-                    years.forEach(item => {
-                        const values = [
-                            item.year,
-                            formatAnnualRecapNumber(item.totalJO),
-                            formatAnnualRecapNumber(item.closedJO),
-                            formatAnnualRecapNumber(item.openJO),
-                            formatAnnualRecapNumber(item.totalHasil),
-                            annualRecapStatus(item.status)
-                        ];
-                        if (body) {
-                            const tr = document.createElement("tr");
-                            values.forEach((value, index) => {
-                                const td = document.createElement("td");
-                                if (index === 0 && String(item.year) === "2026") {
-                                    const year = document.createElement("strong");
-                                    year.textContent = "2026";
-                                    const note = document.createElement("small");
-                                    note.className = "annual-coverage-note";
-                                    note.textContent = "Arsip JO CLOSED mulai 10 November 2026";
-                                    td.append(year, note);
-                                } else {
-                                    td.textContent = String(value);
-                                }
-                                tr.appendChild(td);
-                            });
-                            body.appendChild(tr);
-                        }
-                        if (cards) {
-                            const card = document.createElement("article");
-                            card.className = "annual-recap-card " +
-                                (item.status === "FINAL" || item.status === "BACKED_UP" ? "is-final" :
-                                 item.status === "WAITING_FINALIZATION" ? "is-waiting" : "");
-                            const head = document.createElement("div");
-                            head.className = "annual-recap-card-head";
-                            const year = document.createElement("strong");
-                            year.textContent = String(item.year);
-                            const status = document.createElement("span");
-                            status.className = "annual-recap-card-status";
-                            status.textContent = annualRecapStatus(item.status);
-                            head.append(year, status);
-                            const grid = document.createElement("div");
-                            grid.className = "annual-recap-card-grid";
-                            [["Total JO", item.totalJO], ["JO Closed", item.closedJO], ["JO Open", item.openJO], ["Total Hasil", item.totalHasil]]
-                                .forEach(([label, value]) => {
-                                    const metric = document.createElement("div");
-                                    metric.className = "annual-recap-metric";
-                                    const caption = document.createElement("span");
-                                    caption.textContent = label;
-                                    const number = document.createElement("strong");
-                                    number.textContent = formatAnnualRecapNumber(value);
-                                    metric.append(caption, number);
-                                    grid.appendChild(metric);
-                                });
-                            if (String(item.year) === "2026") {
-                                const coverage = document.createElement("div");
-                                coverage.className = "annual-coverage-note";
-                                coverage.textContent = "Arsip JO CLOSED mulai 10 November 2026";
-                                card.append(head, coverage, grid);
-                            } else {
-                                card.append(head, grid);
-                            }
-                            cards.appendChild(card);
-                        }
-                    });
-                }
-                if (message) message.textContent = "Rekap berhasil diperbarui. Status FINAL hanya diberikan bila semua JO tahun tersebut CLOSED, telah masuk arsip Supabase, dan melewati H+1.";
+                renderAnnualShipmentRecapRows();
             } catch (error) {
                 if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#b91c1c;">Rekap tahunan belum dapat dimuat.</td></tr>';
                 if (cards) {
